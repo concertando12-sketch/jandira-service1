@@ -6,6 +6,13 @@
  * script cria CONTAS DE VERDADE no Supabase Auth — por isso roda em
  * Node com a service role key, não no SQL Editor.
  *
+ * Cobertura: 4 prestadores "curados" (com bio/preço pensados pro
+ * roteiro de teste da spec) + 1 prestador genérico pra CADA outra
+ * profissão ativa no catálogo (busca em `services`, não é lista fixa —
+ * cobre também profissões aprovadas depois via sugestão). Os bairros
+ * são distribuídos em rodízio entre todos os `regions` ativos, pra dar
+ * pra testar busca/match regional em qualquer bairro.
+ *
  * Pré-requisitos:
  *   1. supabase/schema.sql e supabase/seed.sql já rodados
  *   2. .env.local preenchido com NEXT_PUBLIC_SUPABASE_URL e
@@ -14,8 +21,12 @@
  * Rodar:
  *   npm run seed:demo
  */
-import "dotenv/config";
+import { config } from "dotenv";
 import { createClient } from "@supabase/supabase-js";
+
+// dotenv/config sozinho só carrega .env — o projeto usa .env.local
+// (padrão do Next.js), então precisa apontar pro arquivo certo.
+config({ path: ".env.local" });
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -35,11 +46,27 @@ const admin = createClient(supabaseUrl, serviceRoleKey, {
 
 const DEMO_PASSWORD = "Demo123456!";
 
+interface DemoProvider {
+  email: string;
+  name: string;
+  phone: string;
+  professionalName: string;
+  serviceSlug: string;
+  homeRegion: string;
+  street: string;
+  number: string;
+  attends: string[];
+  description: string;
+  priceFrom: number;
+  priceTo: number;
+  verified: boolean;
+}
+
 // `homeRegion` = onde mora (informativo). `attends` = bairros que
 // atende de verdade (o que o motor de busca usa) — sempre inclui o
 // bairro onde mora + outros, pra mostrar a regra do item 9/26 (Maria
 // mora na Vila Eunice mas atende Centro e Novo Horizonte também).
-const DEMO_PROVIDERS = [
+const CURATED_PROVIDERS: DemoProvider[] = [
   {
     email: "ana.souza.demo@jandiraservice.com",
     name: "Ana Souza",
@@ -102,6 +129,55 @@ const DEMO_PROVIDERS = [
   },
 ];
 
+// Pool de nomes só pra gerar os prestadores genéricos (1 por profissão
+// que ainda não tem um "curado" acima) — não precisa ser bonito, só
+// precisa ser único o suficiente pra não confundir nos testes.
+const FIRST_NAMES = [
+  "Bruno", "Camila", "Diego", "Elaine", "Fábio", "Gabriela", "Henrique", "Isabela",
+  "Juliana", "Lucas", "Marcos", "Natália", "Otávio", "Patrícia", "Rafael", "Sandra",
+  "Tiago", "Vanessa", "Wagner", "Aline", "Bruna", "Cristiano", "Débora", "Eduardo",
+  "Fernanda", "Gustavo", "Helena", "Igor", "Jéssica", "Leandro", "Mônica", "Nelson",
+  "Priscila", "Rodrigo", "Simone", "Thiago", "Viviane", "William", "Yasmin",
+];
+const LAST_NAMES = [
+  "Almeida", "Barbosa", "Cardoso", "Duarte", "Ferreira", "Gonçalves", "Henriques",
+  "Ibrahim", "Junqueira", "Lima", "Martins", "Nogueira", "Oliveira", "Pereira",
+  "Queiroz", "Ramos", "Silveira", "Teixeira", "Vieira", "Xavier",
+];
+
+async function buildGeneratedProviders(regionNames: string[]): Promise<DemoProvider[]> {
+  const { data: services } = await admin.from("services").select("slug, name").eq("is_active", true);
+  const curatedSlugs = new Set(CURATED_PROVIDERS.map((p) => p.serviceSlug));
+  const remaining = (services ?? []).filter((s) => !curatedSlugs.has(s.slug));
+
+  return remaining.map((service, i) => {
+    const first = FIRST_NAMES[i % FIRST_NAMES.length];
+    const last = LAST_NAMES[Math.floor(i / FIRST_NAMES.length) % LAST_NAMES.length];
+    const name = `${first} ${last}`;
+    const homeRegion = regionNames[i % regionNames.length];
+    const attends = [
+      homeRegion,
+      regionNames[(i + 1) % regionNames.length],
+      regionNames[(i + 2) % regionNames.length],
+    ];
+    return {
+      email: `demo.${service.slug}@jandiraservice.com`,
+      name,
+      phone: `(11) 90001-${String(1000 + i).slice(-4)}`,
+      professionalName: name,
+      serviceSlug: service.slug,
+      homeRegion,
+      street: `Rua Demo ${i + 1}`,
+      number: String(100 + i),
+      attends,
+      description: `[DEMO] ${service.name} em Jandira-SP — conta de teste gerada automaticamente.`,
+      priceFrom: 60 + (i % 8) * 10,
+      priceTo: 150 + (i % 8) * 20,
+      verified: i % 3 === 0,
+    };
+  });
+}
+
 // Mesmo bairro da Ana Souza (Novo Horizonte) de propósito — pra dar pra
 // testar o teste principal da spec (item 49) direto: Cliente Teste
 // busca "Babá" e a Ana já aparece automaticamente pelo bairro salvo.
@@ -141,6 +217,95 @@ async function ensureAuthUser(params: {
   return data.user.id;
 }
 
+async function seedProvider(
+  provider: DemoProvider,
+  cityId: string,
+  regionByName: Map<string, string>,
+) {
+  const userId = await ensureAuthUser({
+    email: provider.email,
+    name: provider.name,
+    phone: provider.phone,
+    role: "PROVIDER",
+  });
+
+  const homeRegionId = regionByName.get(provider.homeRegion) ?? null;
+  if (!homeRegionId) {
+    console.warn(`  ! bairro "${provider.homeRegion}" não encontrado — pulando ${provider.name}`);
+    return;
+  }
+
+  const { data: service } = await admin
+    .from("services")
+    .select("id")
+    .eq("slug", provider.serviceSlug)
+    .single();
+
+  if (!service) {
+    console.warn(`  ! serviço "${provider.serviceSlug}" não encontrado — pulando ${provider.name}`);
+    return;
+  }
+
+  await admin.from("user_addresses").upsert(
+    {
+      user_id: userId,
+      city_id: cityId,
+      region_id: homeRegionId,
+      street: provider.street,
+      number: provider.number,
+      is_primary: true,
+    },
+    { onConflict: "user_id" },
+  );
+
+  const { data: profile, error: profileError } = await admin
+    .from("provider_profiles")
+    .upsert(
+      {
+        user_id: userId,
+        professional_name: provider.professionalName,
+        description: provider.description,
+        phone: provider.phone,
+        whatsapp: provider.phone,
+        price_from: provider.priceFrom,
+        price_to: provider.priceTo,
+        is_active: true,
+        is_verified: provider.verified,
+        // Já nascem homologados pra dar pra testar a busca/solicitação
+        // direto (Fase 6 exige status=APPROVED pra aparecer — item 42).
+        status: "APPROVED",
+        profile_completion: 100,
+      },
+      { onConflict: "user_id" },
+    )
+    .select("id")
+    .single();
+
+  if (profileError || !profile) {
+    console.warn(`  ! erro ao salvar perfil de ${provider.name}: ${profileError?.message}`);
+    return;
+  }
+
+  await admin
+    .from("provider_services")
+    .upsert({ provider_id: profile.id, service_id: service.id }, { onConflict: "provider_id,service_id" });
+
+  const attendingRegionIds = provider.attends
+    .map((name) => regionByName.get(name))
+    .filter((id): id is string => Boolean(id));
+
+  await admin.from("provider_regions").delete().eq("provider_id", profile.id);
+  if (attendingRegionIds.length > 0) {
+    await admin
+      .from("provider_regions")
+      .insert(attendingRegionIds.map((regionId) => ({ provider_id: profile.id, region_id: regionId })));
+  }
+
+  console.log(
+    `  perfil publicado: ${provider.name} (${provider.serviceSlug}, mora em ${provider.homeRegion}, atende ${attendingRegionIds.length} bairro(s))`,
+  );
+}
+
 async function main() {
   console.log(`Seed DEMO — ${APP_CITY}/${APP_STATE}\n`);
 
@@ -160,8 +325,14 @@ async function main() {
   const { data: allRegions } = await admin
     .from("regions")
     .select("id, name")
-    .eq("city_id", city.id);
+    .eq("city_id", city.id)
+    .order("name");
   const regionByName = new Map((allRegions ?? []).map((r) => [r.name, r.id]));
+  const regionNames = (allRegions ?? []).map((r) => r.name);
+
+  if (regionNames.length === 0) {
+    throw new Error("Nenhum bairro cadastrado. Rode supabase/seed.sql primeiro.");
+  }
 
   console.log("Cliente demo:");
   const clientUserId = await ensureAuthUser({ ...DEMO_CLIENT, role: "CLIENT" });
@@ -180,93 +351,12 @@ async function main() {
     );
   }
 
-  console.log("\nPrestadores demo:");
-  for (const provider of DEMO_PROVIDERS) {
-    const userId = await ensureAuthUser({
-      email: provider.email,
-      name: provider.name,
-      phone: provider.phone,
-      role: "PROVIDER",
-    });
+  const generatedProviders = await buildGeneratedProviders(regionNames);
+  const allProviders = [...CURATED_PROVIDERS, ...generatedProviders];
 
-    const homeRegionId = regionByName.get(provider.homeRegion) ?? null;
-    if (!homeRegionId) {
-      console.warn(`  ! bairro "${provider.homeRegion}" não encontrado — pulando ${provider.name}`);
-      continue;
-    }
-
-    const { data: service } = await admin
-      .from("services")
-      .select("id")
-      .eq("slug", provider.serviceSlug)
-      .single();
-
-    if (!service) {
-      console.warn(`  ! serviço "${provider.serviceSlug}" não encontrado — pulando ${provider.name}`);
-      continue;
-    }
-
-    await admin.from("user_addresses").upsert(
-      {
-        user_id: userId,
-        city_id: city.id,
-        region_id: homeRegionId,
-        street: provider.street,
-        number: provider.number,
-        is_primary: true,
-      },
-      { onConflict: "user_id" },
-    );
-
-    const { data: profile, error: profileError } = await admin
-      .from("provider_profiles")
-      .upsert(
-        {
-          user_id: userId,
-          professional_name: provider.professionalName,
-          description: provider.description,
-          phone: provider.phone,
-          whatsapp: provider.phone,
-          price_from: provider.priceFrom,
-          price_to: provider.priceTo,
-          is_active: true,
-          is_verified: provider.verified,
-          // Já nascem homologados pra dar pra testar a busca/solicitação
-          // direto (Fase 6 exige status=APPROVED pra aparecer — item 42).
-          status: "APPROVED",
-          profile_completion: 100,
-        },
-        { onConflict: "user_id" },
-      )
-      .select("id")
-      .single();
-
-    if (profileError || !profile) {
-      console.warn(`  ! erro ao salvar perfil de ${provider.name}: ${profileError?.message}`);
-      continue;
-    }
-
-    await admin
-      .from("provider_services")
-      .upsert(
-        { provider_id: profile.id, service_id: service.id },
-        { onConflict: "provider_id,service_id" },
-      );
-
-    const attendingRegionIds = provider.attends
-      .map((name) => regionByName.get(name))
-      .filter((id): id is string => Boolean(id));
-
-    await admin.from("provider_regions").delete().eq("provider_id", profile.id);
-    if (attendingRegionIds.length > 0) {
-      await admin
-        .from("provider_regions")
-        .insert(attendingRegionIds.map((regionId) => ({ provider_id: profile.id, region_id: regionId })));
-    }
-
-    console.log(
-      `  perfil publicado: ${provider.name} (${provider.serviceSlug}, mora em ${provider.homeRegion}, atende ${attendingRegionIds.length} bairro(s))`,
-    );
+  console.log(`\nPrestadores demo (${allProviders.length} — 1 por profissão ativa no catálogo):`);
+  for (const provider of allProviders) {
+    await seedProvider(provider, city.id, regionByName);
   }
 
   console.log(`\nPronto. Login de qualquer conta demo: senha "${DEMO_PASSWORD}".`);
