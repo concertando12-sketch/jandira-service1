@@ -101,8 +101,34 @@ Supabase de verdade.
   autônomo, Personal trainer) e 2 categorias novas (Serviços Profissionais,
   Saúde e Bem-estar)
 
-- ⏳ Upload de documentos do prestador, testes ponta a ponta com Supabase real,
-  responsividade/deploy → próximas fases (ver `PROJETO_SPEC.md`)
+**Admin pode navegar como cliente/prestador** ✅
+- Seletor "Vendo como: Cliente/Prestador/Admin" no menu — só pra quem é ADMIN de
+  verdade, com a própria conta, sem precisar de 3 logins pra ver cada experiência
+- Admin → Serviços: "+ Nova categoria" embutido no formulário de criar serviço, e o
+  prestador também pode sugerir categoria nova junto do serviço (fica pendente,
+  igual sugestão de bairro/serviço)
+
+**Fase 9 — Assinatura mensal via PIX** ✅
+- Cliente e prestador pagam **R$ 5/mês** (valor configurável) pra usar a
+  plataforma — pagamento manual: a pessoa paga a chave PIX por fora, sobe o
+  comprovante em `/cliente/assinatura` ou `/prestador/assinatura`, e um admin
+  confere nome/CPF contra o cadastro antes de aprovar (`subscriptions`, upload
+  no bucket privado `payment-receipts`)
+- **Sem travar no login** — cliente e prestador navegam livres; o bloqueio é só
+  na hora de valor real: cliente sem assinatura em dia não consegue solicitar
+  serviço (RLS + checagem na tela), prestador sem assinatura em dia some da
+  busca (`search_providers`)
+- CPF passou a ser coletado no cadastro (`/cadastro`) — usado só pra essa
+  conferência
+- Admin → Assinaturas: fila de comprovantes pendentes com aprovar/rejeitar
+  (motivo obrigatório); Admin → Configurações: chave PIX, nome do recebedor e
+  valor editáveis sem mexer em código; dashboard admin ganhou aba financeira
+  (assinantes ativos, receita do mês, comprovantes pendentes)
+- **Conta ADMIN nunca precisa pagar** — exceção permanente na regra
+  (`has_active_subscription`), não um registro manual
+
+- ⏳ Upload de documentos do prestador, responsividade/deploy final → próximas
+  fases (ver `PROJETO_SPEC.md`)
 
 ## 1. Configurar o Supabase
 

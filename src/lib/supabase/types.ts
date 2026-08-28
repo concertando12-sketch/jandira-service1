@@ -20,6 +20,7 @@ export type SuggestionStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type ProviderStatus = "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED" | "INACTIVE";
 export type ReportStatus = "PENDING" | "IN_REVIEW" | "RESOLVED" | "DISMISSED";
 export type DocumentType = "IDENTITY" | "PROOF_OF_ADDRESS" | "PROFESSIONAL_DOCUMENT" | "OTHER";
+export type SubscriptionStatus = "PENDING_REVIEW" | "APPROVED" | "REJECTED";
 
 export interface Database {
   public: {
@@ -30,6 +31,7 @@ export interface Database {
           name: string;
           email: string;
           phone: string | null;
+          cpf: string | null;
           role: UserRole;
           avatar_url: string | null;
           is_active: boolean;
@@ -588,6 +590,54 @@ export interface Database {
           },
         ];
       };
+      subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          amount: number;
+          status: SubscriptionStatus;
+          receipt_url: string;
+          submitted_at: string;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          rejection_reason: string | null;
+          period_start: string | null;
+          period_end: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["subscriptions"]["Row"]> & {
+          user_id: string;
+          receipt_url: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["subscriptions"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "subscriptions_reviewed_by_fkey";
+            columns: ["reviewed_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      platform_settings: {
+        Row: {
+          id: boolean;
+          pix_key: string | null;
+          pix_receiver_name: string | null;
+          subscription_amount: number;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["platform_settings"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["platform_settings"]["Row"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -634,6 +684,10 @@ export interface Database {
       reject_service_suggestion: {
         Args: { p_suggestion_id: string };
         Returns: undefined;
+      };
+      has_active_subscription: {
+        Args: { p_user_id: string };
+        Returns: boolean;
       };
       notify: {
         Args: {

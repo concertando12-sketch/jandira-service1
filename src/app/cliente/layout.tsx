@@ -1,4 +1,4 @@
-import { Home, Search, LayoutGrid, ClipboardList, Heart, User, Building2, Bell } from "lucide-react";
+import { Home, Search, LayoutGrid, ClipboardList, Heart, User, Building2, Bell, Wallet } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { requireRole } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/constants";
@@ -29,6 +29,7 @@ export default async function ClienteLayout({ children }: { children: React.Reac
     { href: "/cliente/solicitacoes", label: "Meus pedidos", icon: <ClipboardList {...iconProps} /> },
     { href: "/cliente/favoritos", label: "Favoritos", icon: <Heart {...iconProps} /> },
     { href: "/cliente/endereco", label: "Meu endereço", icon: <Building2 {...iconProps} /> },
+    { href: "/cliente/assinatura", label: "Assinatura", icon: <Wallet {...iconProps} /> },
     { href: "/cliente/perfil", label: "Perfil", icon: <User {...iconProps} /> },
   ];
 

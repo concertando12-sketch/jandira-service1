@@ -51,6 +51,14 @@ do $$ begin
   create type document_type as enum ('IDENTITY', 'PROOF_OF_ADDRESS', 'PROFESSIONAL_DOCUMENT', 'OTHER');
 exception when duplicate_object then null; end $$;
 
+-- Assinatura mensal via PIX (Fase 9) — cliente e prestador precisam de
+-- uma assinatura ATIVA pra contratar/aparecer na busca (ver
+-- has_active_subscription). Pagamento é manual: pessoa manda PIX por
+-- fora, sobe o comprovante, admin confere nome/CPF e aprova.
+do $$ begin
+  create type subscription_status as enum ('PENDING_REVIEW', 'APPROVED', 'REJECTED');
+exception when duplicate_object then null; end $$;
+
 -- ---------------------------------------------------------------------
 -- CIDADES E REGIÕES (bairros)
 -- Estrutura cities → regions preparada para múltiplas cidades no
@@ -93,6 +101,11 @@ create table if not exists public.users (
   name text not null default '',
   email text not null,
   phone text,
+  -- Coletado no cadastro (Fase 9) — usado pelo admin pra conferir se
+  -- bate com o nome/CPF do comprovante de PIX na hora de aprovar a
+  -- assinatura (ver `subscriptions`). Nullable no banco pra não
+  -- quebrar contas já existentes; o formulário de cadastro exige.
+  cpf text,
   role user_role not null default 'CLIENT',
   avatar_url text,
   -- Conta bloqueada pelo admin (Fase 6, item 8) — diferente do status
@@ -382,6 +395,68 @@ create table if not exists public.notifications (
 
 create index if not exists idx_notifications_user on public.notifications(user_id, is_read);
 
+-- ---------------------------------------------------------------------
+-- ASSINATURA MENSAL VIA PIX (Fase 9)
+-- Cada linha é UMA tentativa de pagamento (histórico completo, não só
+-- o status atual) — fica fácil o admin ver o histórico de cada pessoa
+-- e calcular receita por mês. "Está em dia" = existe uma linha
+-- APPROVED com period_end >= hoje (ver has_active_subscription).
+-- period_start/period_end só são preenchidos quando aprovado; o ciclo
+-- é sempre 1 mês a partir da data de aprovação (não do cadastro).
+-- ---------------------------------------------------------------------
+create table if not exists public.subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.users(id) on delete cascade,
+  amount numeric(10,2) not null default 5.00,
+  status subscription_status not null default 'PENDING_REVIEW',
+  receipt_url text not null,
+  submitted_at timestamptz not null default now(),
+  reviewed_at timestamptz,
+  reviewed_by uuid references public.users(id) on delete set null,
+  rejection_reason text,
+  period_start date,
+  period_end date
+);
+
+create index if not exists idx_subscriptions_user on public.subscriptions(user_id);
+create index if not exists idx_subscriptions_status on public.subscriptions(status);
+
+-- Verifica se o usuário está com a assinatura em dia — usado tanto pro
+-- cliente conseguir solicitar serviço quanto pro prestador aparecer na
+-- busca. security definer + stable: consultada em RLS/RPC sem expor a
+-- tabela inteira.
+create or replace function public.has_active_subscription(p_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  -- ADMIN nunca precisa pagar a própria plataforma — sempre "em dia",
+  -- pra sempre, sem depender de nenhuma linha em `subscriptions`.
+  -- CLIENT e PROVIDER seguem a regra normal (assinatura mensal real).
+  select
+    exists (select 1 from public.users where id = p_user_id and role = 'ADMIN')
+    or exists (
+      select 1 from public.subscriptions
+      where user_id = p_user_id and status = 'APPROVED' and period_end >= current_date
+    );
+$$;
+
+-- Configuração global da plataforma (Fase 9) — chave PIX, nome do
+-- recebedor e valor da assinatura, editáveis pelo admin sem mexer em
+-- código. Tabela-singleton: id sempre true, só pode ter 1 linha.
+create table if not exists public.platform_settings (
+  id boolean primary key default true,
+  pix_key text,
+  pix_receiver_name text,
+  subscription_amount numeric(10,2) not null default 5.00,
+  updated_at timestamptz not null default now(),
+  constraint platform_settings_singleton check (id)
+);
+
+insert into public.platform_settings (id) values (true) on conflict (id) do nothing;
+
 -- =====================================================================
 -- FUNÇÕES AUXILIARES
 -- =====================================================================
@@ -428,12 +503,13 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.users (id, name, email, phone, role)
+  insert into public.users (id, name, email, phone, cpf, role)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
     new.email,
     new.raw_user_meta_data->>'phone',
+    new.raw_user_meta_data->>'cpf',
     case
       when new.raw_user_meta_data->>'role' = 'PROVIDER' then 'PROVIDER'::user_role
       else 'CLIENT'::user_role
@@ -741,8 +817,9 @@ as $$
   left join public.user_addresses ua on ua.user_id = pp.user_id
   left join public.regions hr on hr.id = ua.region_id
   -- Regra mais importante do marketplace (Fase 6, item 42): só
-  -- aparece publicado E homologado pelo admin.
-  where pp.is_active = true and pp.status = 'APPROVED'
+  -- aparece publicado E homologado pelo admin. Fase 9: e com a
+  -- assinatura mensal em dia.
+  where pp.is_active = true and pp.status = 'APPROVED' and public.has_active_subscription(pp.user_id)
   order by pp.is_verified desc, pp.rating_avg desc nulls last, pp.rating_count desc, pp.profile_completion desc
   limit p_limit offset p_offset;
 $$;
@@ -917,6 +994,8 @@ alter table public.notifications enable row level security;
 alter table public.provider_documents enable row level security;
 alter table public.reports enable row level security;
 alter table public.admin_logs enable row level security;
+alter table public.subscriptions enable row level security;
+alter table public.platform_settings enable row level security;
 
 -- cities / regions: leitura pública dos ativos, escrita só admin.
 drop policy if exists "cities_select" on public.cities;
@@ -1046,7 +1125,9 @@ create policy "service_requests_select" on public.service_requests for select
   );
 -- Cliente só cria pedido em nome dele mesmo, sempre PENDING e sem
 -- inventar valor/resposta do prestador na hora de criar (item 38/39 —
--- isso complementa o trigger, que só age em UPDATE).
+-- isso complementa o trigger, que só age em UPDATE). Fase 9: também
+-- precisa estar com a assinatura mensal em dia — sem isso nem o
+-- servidor nem a API dão pra pular essa regra.
 drop policy if exists "service_requests_insert_client" on public.service_requests;
 create policy "service_requests_insert_client" on public.service_requests for insert
   with check (
@@ -1056,6 +1137,7 @@ create policy "service_requests_insert_client" on public.service_requests for in
     and provider_response is null
     and cancel_reason is null
     and exists (select 1 from public.users u where u.id = auth.uid() and u.role = 'CLIENT')
+    and public.has_active_subscription(auth.uid())
   );
 drop policy if exists "service_requests_update" on public.service_requests;
 create policy "service_requests_update" on public.service_requests for update
@@ -1140,6 +1222,31 @@ drop policy if exists "admin_logs_admin_insert" on public.admin_logs;
 create policy "admin_logs_admin_insert" on public.admin_logs for insert
   with check (admin_id = auth.uid() and public.is_admin());
 
+-- subscriptions (Fase 9): dono vê o próprio histórico; admin vê e
+-- revisa tudo. Insert é sempre PENDING_REVIEW e em nome do próprio
+-- usuário — ninguém aprova a própria assinatura sozinho (só update é
+-- restrito a admin, não tem policy de update pro dono).
+drop policy if exists "subscriptions_select_own_or_admin" on public.subscriptions;
+create policy "subscriptions_select_own_or_admin" on public.subscriptions for select
+  using (user_id = auth.uid() or public.is_admin());
+drop policy if exists "subscriptions_insert_own" on public.subscriptions;
+create policy "subscriptions_insert_own" on public.subscriptions for insert
+  with check (user_id = auth.uid() and status = 'PENDING_REVIEW');
+drop policy if exists "subscriptions_admin_update" on public.subscriptions;
+create policy "subscriptions_admin_update" on public.subscriptions for update
+  using (public.is_admin())
+  with check (public.is_admin());
+
+-- platform_settings (Fase 9): qualquer usuário logado precisa ler a
+-- chave PIX pra pagar; só admin edita.
+drop policy if exists "platform_settings_select_authenticated" on public.platform_settings;
+create policy "platform_settings_select_authenticated" on public.platform_settings for select
+  using (auth.role() = 'authenticated' or public.is_admin());
+drop policy if exists "platform_settings_admin_update" on public.platform_settings;
+create policy "platform_settings_admin_update" on public.platform_settings for update
+  using (public.is_admin())
+  with check (public.is_admin());
+
 -- =====================================================================
 -- PERMISSÕES DAS FUNÇÕES RPC
 -- Garante explicitamente que a busca (pública) e as ações de aprovar/
@@ -1152,6 +1259,7 @@ grant execute on function public.approve_region_suggestion(uuid) to authenticate
 grant execute on function public.reject_region_suggestion(uuid) to authenticated;
 grant execute on function public.approve_service_suggestion(uuid) to authenticated;
 grant execute on function public.reject_service_suggestion(uuid) to authenticated;
+grant execute on function public.has_active_subscription(uuid) to anon, authenticated;
 
 -- =====================================================================
 -- STORAGE — foto de perfil do prestador (Fase 7)
@@ -1179,3 +1287,24 @@ create policy "provider_photos_own_update" on storage.objects for update
 drop policy if exists "provider_photos_own_delete" on storage.objects;
 create policy "provider_photos_own_delete" on storage.objects for delete
   using (bucket_id = 'provider-photos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- =====================================================================
+-- STORAGE — comprovante de pagamento PIX (Fase 9)
+-- Bucket PRIVADO (é documento financeiro, diferente da foto de
+-- perfil) — só o próprio dono e admin conseguem ler. Mesmo padrão de
+-- pasta por prefixo = auth.uid().
+-- =====================================================================
+insert into storage.buckets (id, name, public)
+values ('payment-receipts', 'payment-receipts', false)
+on conflict (id) do nothing;
+
+drop policy if exists "payment_receipts_own_or_admin_read" on storage.objects;
+create policy "payment_receipts_own_or_admin_read" on storage.objects for select
+  using (
+    bucket_id = 'payment-receipts'
+    and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin())
+  );
+
+drop policy if exists "payment_receipts_own_write" on storage.objects;
+create policy "payment_receipts_own_write" on storage.objects for insert
+  with check (bucket_id = 'payment-receipts' and (storage.foldername(name))[1] = auth.uid()::text);

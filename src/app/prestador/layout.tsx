@@ -1,4 +1,4 @@
-import { Home, ClipboardList, Wrench, MapPin, User, Settings, Building2, Bell } from "lucide-react";
+import { Home, ClipboardList, Wrench, MapPin, User, Settings, Building2, Bell, Wallet } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { requireRole } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/constants";
@@ -28,6 +28,7 @@ export default async function PrestadorLayout({ children }: { children: React.Re
     { href: "/prestador/servicos", label: "Meus serviços", icon: <Wrench {...iconProps} /> },
     { href: "/prestador/regiao", label: "Minha região", icon: <MapPin {...iconProps} /> },
     { href: "/prestador/endereco", label: "Meu endereço", icon: <Building2 {...iconProps} /> },
+    { href: "/prestador/assinatura", label: "Assinatura", icon: <Wallet {...iconProps} /> },
     { href: "/prestador/perfil", label: "Meu perfil", icon: <User {...iconProps} /> },
     { href: "/prestador/configuracoes", label: "Configurações", icon: <Settings {...iconProps} /> },
   ];

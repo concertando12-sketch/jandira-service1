@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Bell, CalendarCheck2, CheckCircle2, Star, UserCircle2 } from "lucide-react";
+import { Bell, CalendarCheck2, CheckCircle2, Star, UserCircle2, Wallet } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { getSubscriptionData } from "@/lib/subscription";
 import { Card } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { StatCard } from "@/components/dashboard/stat-card";
@@ -9,6 +10,7 @@ import { StatCard } from "@/components/dashboard/stat-card";
 export default async function PrestadorDashboardPage() {
   const user = await requireRole("PROVIDER");
   const supabase = await createClient();
+  const { isActive: hasActiveSubscription } = await getSubscriptionData(user.id, user.role === "ADMIN");
 
   const { data: profile } = await supabase
     .from("provider_profiles")
@@ -81,6 +83,23 @@ export default async function PrestadorDashboardPage() {
           </div>
           <LinkButton href="/prestador/servicos" size="sm">
             Escolher serviços
+          </LinkButton>
+        </Card>
+      )}
+
+      {!hasActiveSubscription && (
+        <Card className="mt-3 flex flex-col items-start gap-3 border-danger/40 bg-danger/10 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <Wallet className="h-8 w-8 text-danger" />
+            <div>
+              <p className="font-semibold text-foreground">Assinatura mensal pendente</p>
+              <p className="text-sm text-muted">
+                Sem a assinatura em dia, você não aparece em nenhuma busca de cliente.
+              </p>
+            </div>
+          </div>
+          <LinkButton href="/prestador/assinatura" size="sm">
+            Ver assinatura
           </LinkButton>
         </Card>
       )}

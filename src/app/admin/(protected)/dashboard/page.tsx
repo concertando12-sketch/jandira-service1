@@ -10,6 +10,8 @@ import {
   ShieldQuestion,
   Users,
   Wrench,
+  Wallet,
+  DollarSign,
 } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -23,6 +25,10 @@ export default async function AdminDashboardPage() {
 
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+  const todayDate = new Date().toISOString().slice(0, 10);
 
   const [
     { count: clientsCount },
@@ -37,6 +43,9 @@ export default async function AdminDashboardPage() {
     { count: pendingReportsCount },
     { count: pendingSuggestionsCount },
     { count: pendingServiceSuggestionsCount },
+    { count: pendingSubscriptionsCount },
+    { data: activeSubscriberRows },
+    { data: revenueThisMonthRows },
   ] = await Promise.all([
     supabase.from("users").select("id", { count: "exact", head: true }).eq("role", "CLIENT"),
     supabase.from("users").select("id", { count: "exact", head: true }).eq("role", "PROVIDER"),
@@ -71,7 +80,24 @@ export default async function AdminDashboardPage() {
       .from("service_suggestions")
       .select("id", { count: "exact", head: true })
       .eq("status", "PENDING"),
+    supabase
+      .from("subscriptions")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "PENDING_REVIEW"),
+    supabase
+      .from("subscriptions")
+      .select("user_id")
+      .eq("status", "APPROVED")
+      .gte("period_end", todayDate),
+    supabase
+      .from("subscriptions")
+      .select("amount")
+      .eq("status", "APPROVED")
+      .gte("reviewed_at", startOfMonth.toISOString()),
   ]);
+
+  const activeSubscribersCount = new Set((activeSubscriberRows ?? []).map((r) => r.user_id)).size;
+  const revenueThisMonth = (revenueThisMonthRows ?? []).reduce((sum, r) => sum + Number(r.amount), 0);
 
   const alerts = [
     {
@@ -89,6 +115,11 @@ export default async function AdminDashboardPage() {
       count: pendingServiceSuggestionsCount ?? 0,
       label: "sugestões de serviço",
       href: "/admin/servicos",
+    },
+    {
+      count: pendingSubscriptionsCount ?? 0,
+      label: "comprovantes de assinatura pendentes",
+      href: "/admin/assinaturas",
     },
   ].filter((a) => a.count > 0);
 
@@ -133,6 +164,17 @@ export default async function AdminDashboardPage() {
         <StatCard label="Categorias" value={categoriesCount ?? 0} icon={LayoutGrid} />
         <StatCard label="Serviços" value={servicesCount ?? 0} icon={Wrench} />
         <StatCard label="Bairros" value={regionsCount ?? 0} icon={MapPin} />
+      </div>
+
+      <p className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wide text-muted">Financeiro</p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <StatCard label="Assinantes ativos" value={activeSubscribersCount} icon={Wallet} />
+        <StatCard
+          label="Receita do mês"
+          value={revenueThisMonth.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+          icon={DollarSign}
+        />
+        <StatCard label="Comprovantes pendentes" value={pendingSubscriptionsCount ?? 0} icon={ClipboardList} />
       </div>
     </div>
   );

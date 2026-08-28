@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { CalendarCheck2, CheckCircle2, Clock3, MapPin, Search } from "lucide-react";
+import { CalendarCheck2, CheckCircle2, Clock3, MapPin, Search, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
+import { getSubscriptionData } from "@/lib/subscription";
 import { Card, Badge } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { APP_CITY } from "@/lib/constants";
@@ -9,6 +10,7 @@ import { APP_CITY } from "@/lib/constants";
 export default async function ClienteDashboardPage() {
   const user = await requireRole("CLIENT");
   const supabase = await createClient();
+  const { isActive: hasActiveSubscription } = await getSubscriptionData(user.id, user.role === "ADMIN");
 
   const [
     { count: pendingCount },
@@ -74,6 +76,21 @@ export default async function ClienteDashboardPage() {
         <Search className="h-4.5 w-4.5" />
         Buscar serviço (ex: eletricista, babá, diarista...)
       </Link>
+
+      {!hasActiveSubscription && (
+        <Card className="mt-6 flex flex-col items-start gap-3 border-danger/40 bg-danger/10 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <Wallet className="h-8 w-8 text-danger" />
+            <div>
+              <p className="font-semibold text-foreground">Assinatura mensal pendente</p>
+              <p className="text-sm text-muted">Sem ela em dia, você não consegue solicitar serviços.</p>
+            </div>
+          </div>
+          <LinkButton href="/cliente/assinatura" size="sm">
+            Ver assinatura
+          </LinkButton>
+        </Card>
+      )}
 
       {nextService && (
         <Link href={`/cliente/solicitacoes/${nextService.id}`}>

@@ -190,6 +190,36 @@ const DEMO_CLIENT = {
   number: "500",
 };
 
+// Fase 9 (assinatura mensal via PIX): sem assinatura ATIVA, cliente
+// não consegue solicitar e prestador some da busca — então toda conta
+// demo precisa nascer com uma assinatura já aprovada, senão os testes
+// (item 49 da spec) não têm como funcionar.
+async function ensureActiveSubscription(userId: string) {
+  const today = new Date();
+  const periodStart = today.toISOString().slice(0, 10);
+  const periodEndDate = new Date(today);
+  periodEndDate.setMonth(periodEndDate.getMonth() + 1);
+  const periodEnd = periodEndDate.toISOString().slice(0, 10);
+
+  const { data: existing } = await admin
+    .from("subscriptions")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("status", "APPROVED")
+    .gte("period_end", periodStart)
+    .maybeSingle();
+  if (existing) return;
+
+  await admin.from("subscriptions").insert({
+    user_id: userId,
+    status: "APPROVED",
+    receipt_url: "demo/seed-auto-approved",
+    period_start: periodStart,
+    period_end: periodEnd,
+    reviewed_at: today.toISOString(),
+  });
+}
+
 async function ensureAuthUser(params: {
   email: string;
   name: string;
@@ -301,6 +331,8 @@ async function seedProvider(
       .insert(attendingRegionIds.map((regionId) => ({ provider_id: profile.id, region_id: regionId })));
   }
 
+  await ensureActiveSubscription(userId);
+
   console.log(
     `  perfil publicado: ${provider.name} (${provider.serviceSlug}, mora em ${provider.homeRegion}, atende ${attendingRegionIds.length} bairro(s))`,
   );
@@ -350,6 +382,7 @@ async function main() {
       { onConflict: "user_id" },
     );
   }
+  await ensureActiveSubscription(clientUserId);
 
   const generatedProviders = await buildGeneratedProviders(regionNames);
   const allProviders = [...CURATED_PROVIDERS, ...generatedProviders];

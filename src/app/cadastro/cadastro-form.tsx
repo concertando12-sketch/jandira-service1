@@ -14,6 +14,17 @@ const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: "PROVIDER", label: "Sou prestador" },
 ];
 
+// Máscara 000.000.000-00 — só formata visualmente, quem valida de
+// verdade (nome/CPF batendo com o comprovante) é o admin na hora de
+// aprovar a assinatura (Fase 9).
+function formatCpf(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  return digits
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+}
+
 export function CadastroForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -23,6 +34,7 @@ export function CadastroForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [cpf, setCpf] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +52,11 @@ export function CadastroForm() {
       return;
     }
 
+    const cpfDigits = cpf.replace(/\D/g, "");
+    if (cpfDigits.length !== 11) {
+      setError("Informe um CPF válido (11 dígitos).");
+      return;
+    }
     if (password.length < 6) {
       setError("A senha precisa ter pelo menos 6 caracteres.");
       return;
@@ -54,7 +71,7 @@ export function CadastroForm() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name, phone, role } },
+      options: { data: { name, phone, cpf: cpfDigits, role } },
     });
     setLoading(false);
 
@@ -147,6 +164,22 @@ export function CadastroForm() {
           onChange={(e) => setPhone(e.target.value)}
           placeholder="(11) 90000-0000"
         />
+      </div>
+
+      <div>
+        <Label htmlFor="cpf">CPF</Label>
+        <Input
+          id="cpf"
+          required
+          inputMode="numeric"
+          autoComplete="off"
+          value={cpf}
+          onChange={(e) => setCpf(formatCpf(e.target.value))}
+          placeholder="000.000.000-00"
+        />
+        <p className="mt-1 text-xs text-muted">
+          Usado só pra conferir o comprovante quando você pagar a assinatura mensal.
+        </p>
       </div>
 
       <div>

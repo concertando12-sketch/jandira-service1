@@ -323,6 +323,101 @@ profissões que o cliente listou.
   categoria "Serviços Profissionais"), Enfermeiro autônomo e Personal
   trainer (nova categoria "Saúde e Bem-estar").
 
+## Deploy: Supabase e GitHub conectados
+
+Projeto conectado a um Supabase real (schema.sql + seed.sql rodados no SQL
+Editor) e publicado em `github.com/concertando12-sketch/jandira-service1`.
+Isso expôs dois bugs que só apareceriam contra Postgres de verdade — nunca
+tinham sido pegos porque até então tudo só rodava contra o mock do modo
+prévia:
+
+- **Ordem de criação de tabelas**: `region_suggestions` referenciava
+  `public.users(id)` antes da tabela `users` existir no arquivo. Corrigido
+  movendo `users` pra antes.
+- **Trigger de proteção de role bloqueava o próprio bootstrap do admin**:
+  `prevent_role_escalation`/`prevent_provider_status_escalation` só
+  reconheciam "admin de verdade" via `is_admin()` (depende de `auth.uid()`
+  vindo de um JWT autenticado) — isso bloqueava tanto o `UPDATE` direto no
+  SQL Editor (método documentado pra criar o primeiro admin) quanto chamadas
+  via `service_role` key, revertendo a mudança silenciosamente, sem erro.
+  Corrigido reconhecendo essas duas formas de acesso administrativo.
+- **`scripts/seed-demo.ts` nunca carregava as variáveis de ambiente**:
+  `dotenv/config` sozinho só lê `.env`, mas o projeto usa `.env.local`
+  (padrão Next.js). Corrigido apontando o `dotenv.config()` pro arquivo
+  certo. Aproveitado pra expandir a cobertura: 1 prestador demo por
+  profissão ativa no catálogo (gerado dinamicamente a partir de `services`,
+  não é lista fixa), bairro em rodízio entre todos os `regions`.
+
+## Admin navega como cliente/prestador + categoria inline
+
+Dois pedidos do dono da plataforma, direto no admin: (1) conseguir ver a
+experiência de cliente/prestador com a própria conta, sem precisar logar em
+3 contas diferentes; (2) criar categoria nova sem sair da tela de criar
+serviço.
+
+- **`requireRole` e o middleware deixam ADMIN passar** em qualquer rota de
+  `/cliente` ou `/prestador`, além do próprio role esperado. Isso só libera
+  a **navegação** — as policies de RLS que exigem `role = 'CLIENT'` ou
+  `role = 'PROVIDER'` pra ações específicas (criar `service_requests`,
+  criar `provider_profiles`) continuam intactas, então um admin "vendo como
+  cliente" não consegue de fato criar um pedido de verdade em nome de
+  ninguém — só navega pelas telas.
+- **`ViewSwitcher`** no `DashboardShell`, visível só quando `user.role ===
+  "ADMIN"` — troca entre `/cliente/dashboard`, `/prestador/dashboard` e
+  `/admin/dashboard` com um clique.
+- **`CreateServiceForm`** (Admin → Serviços) ganhou "+ Nova categoria"
+  embutido, reaproveitando `createCategoryAction` (que passou a retornar o
+  `id` criado pra já pré-selecionar no dropdown).
+- **Prestador também pode sugerir categoria nova** junto do serviço (não só
+  o admin) — `service_suggestions.suggested_category_name` como alternativa
+  a `category_id`; `approve_service_suggestion` cria a categoria junto
+  (dedup por slug) antes de criar o serviço, se for o caso.
+
+## Fase 9 — Assinatura mensal via PIX
+
+Pedido do dono da plataforma: cliente e prestador pagam uma assinatura
+mensal (R$5, valor configurável) pra usar o app — sem ela em dia, cliente
+não consegue contratar e prestador some da busca. Pagamento é manual:
+PIX por fora, comprovante sobe no app, admin confere nome/CPF contra o
+cadastro e aprova.
+
+- **Modelo de cobrança — gate na ação, não no login**: decisão deliberada
+  (conversada com o cliente) de deixar navegar livre (categorias, busca,
+  perfil) e só bloquear na hora de valor real — cliente tentando solicitar,
+  prestador tentando aparecer pra ser encontrado. Travar todo mundo já no
+  login/cadastro afastaria gente antes de ela ver o que o app oferece.
+- **`subscriptions`**: uma linha por TENTATIVA de pagamento (histórico
+  completo, não só o status atual) — dá pra ver o histórico de cada pessoa
+  e calcular receita por mês somando `amount` das aprovadas. "Em dia" =
+  existe uma linha `APPROVED` com `period_end >= hoje`
+  (`has_active_subscription`, security definer, usada tanto em RLS quanto
+  no motor de busca).
+- **Ciclo sempre a partir da APROVAÇÃO**, não do cadastro nem de quando o
+  comprovante foi enviado — 1 mês exato a partir do dia que o admin aprova.
+  Se a pessoa atrasar o pagamento, o próximo ciclo começa da nova aprovação
+  (não tenta "recuperar" a data original).
+- **CPF**: coletado no cadastro (`/cadastro`), nullable no banco (não quebra
+  contas já existentes) mas exigido no formulário — usado só pra comparação
+  visual do admin com o comprovante, sem validação de dígito verificador
+  (span de erro seria falso-positivo em CPFs válidos com algoritmo
+  simplificado errado; a checagem de verdade é humana mesmo).
+- **`platform_settings`**: tabela-singleton (`id boolean primary key check
+  (id)`, só existe a linha `id = true`) pra chave PIX/nome do
+  recebedor/valor, editável pelo admin sem mexer em código nem em variável
+  de ambiente.
+- **Comprovante em bucket privado** (`payment-receipts`, ao contrário de
+  `provider-photos` que é público) — só o dono e admin leem, via URL
+  assinada gerada na hora (`createSignedUrl`, 10min), nunca uma URL pública
+  fixa.
+- **ADMIN nunca paga**: exceção permanente dentro de
+  `has_active_subscription` (`role = 'ADMIN'` sempre retorna true), não um
+  registro manual na tabela — vale pra qualquer admin, presente ou futuro,
+  e cobre tanto o próprio painel quanto quando ele navega como
+  cliente/prestador via `ViewSwitcher`.
+- **`scripts/seed-demo.ts`** precisou ganhar `ensureActiveSubscription()` —
+  senão os 39 prestadores demo (e o cliente demo) ficariam invisíveis/
+  bloqueados pela regra nova assim que ela entrou no ar.
+
 ## Fases
 
 Ver spec completa enviada pelo cliente. Ordem de execução: Fase 1 → Fase 8, uma de

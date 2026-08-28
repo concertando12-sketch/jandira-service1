@@ -1,7 +1,10 @@
+import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { getSubscriptionData } from "@/lib/subscription";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { ServiceRequestForm } from "@/components/provider/service-request-form";
 
 export default async function SolicitarServicoPage({
@@ -12,6 +15,26 @@ export default async function SolicitarServicoPage({
   const user = await requireRole("CLIENT");
   const { id } = await params;
   const supabase = await createClient();
+
+  // Fase 9: sem assinatura em dia, nem chega a ver o formulário — a
+  // regra "de verdade" já está garantida pela RLS (service_requests_
+  // insert_client), isso só evita mostrar uma tela que ia falhar.
+  const { isActive } = await getSubscriptionData(user.id, user.role === "ADMIN");
+  if (!isActive) {
+    return (
+      <div className="mx-auto max-w-lg">
+        <PageHeader title="Solicitar serviço" description="Assinatura necessária" />
+        <Card className="py-10 text-center">
+          <p className="text-sm text-foreground">
+            Sua assinatura mensal precisa estar em dia pra solicitar um serviço.
+          </p>
+          <Link href="/cliente/assinatura">
+            <Button className="mt-4">Ver assinatura</Button>
+          </Link>
+        </Card>
+      </div>
+    );
+  }
 
   const [{ data: provider }, { data: address }] = await Promise.all([
     supabase

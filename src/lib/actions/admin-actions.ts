@@ -482,3 +482,101 @@ export async function updateReportStatusAction(
     return { ok: false, message: (e as Error).message };
   }
 }
+
+// ---------------------------------------------------------------------
+// Assinatura mensal via PIX (Fase 9) — pagamento manual: admin confere
+// nome/CPF do comprovante contra o cadastro e aprova/rejeita.
+// ---------------------------------------------------------------------
+export async function approveSubscriptionAction(id: string): Promise<ActionResult> {
+  try {
+    const { supabase, adminId } = await requireAdmin();
+
+    // Ciclo de 1 mês a partir de HOJE (data de aprovação) — não do
+    // cadastro nem de quando o comprovante foi enviado, como pedido.
+    const today = new Date();
+    const periodStart = today.toISOString().slice(0, 10);
+    const periodEndDate = new Date(today);
+    periodEndDate.setMonth(periodEndDate.getMonth() + 1);
+    const periodEnd = periodEndDate.toISOString().slice(0, 10);
+
+    const { error } = await supabase
+      .from("subscriptions")
+      .update({
+        status: "APPROVED",
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: adminId,
+        period_start: periodStart,
+        period_end: periodEnd,
+        rejection_reason: null,
+      })
+      .eq("id", id);
+    if (error) return { ok: false, message: error.message };
+
+    await logAdminAction(supabase, adminId, "SUBSCRIPTION_APPROVED", "subscriptions", id);
+
+    revalidatePath("/admin/assinaturas");
+    revalidatePath("/admin/dashboard");
+    revalidatePath("/cliente/assinatura");
+    revalidatePath("/prestador/assinatura");
+    revalidatePath("/cliente/buscar");
+    return { ok: true, message: `Assinatura aprovada até ${new Date(periodEnd).toLocaleDateString("pt-BR")}.` };
+  } catch (e) {
+    return { ok: false, message: (e as Error).message };
+  }
+}
+
+export async function rejectSubscriptionAction(id: string, reason: string): Promise<ActionResult> {
+  try {
+    const { supabase, adminId } = await requireAdmin();
+    if (!reason.trim()) return { ok: false, message: "Informe o motivo da rejeição." };
+
+    const { error } = await supabase
+      .from("subscriptions")
+      .update({
+        status: "REJECTED",
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: adminId,
+        rejection_reason: reason.trim(),
+      })
+      .eq("id", id);
+    if (error) return { ok: false, message: error.message };
+
+    await logAdminAction(supabase, adminId, "SUBSCRIPTION_REJECTED", "subscriptions", id, reason.trim());
+
+    revalidatePath("/admin/assinaturas");
+    revalidatePath("/cliente/assinatura");
+    revalidatePath("/prestador/assinatura");
+    return { ok: true, message: "Comprovante rejeitado." };
+  } catch (e) {
+    return { ok: false, message: (e as Error).message };
+  }
+}
+
+export async function updatePlatformSettingsAction(formData: FormData): Promise<ActionResult> {
+  try {
+    const supabase = await requireAdminClient();
+    const pixKey = String(formData.get("pix_key") ?? "").trim();
+    const pixReceiverName = String(formData.get("pix_receiver_name") ?? "").trim();
+    const amountRaw = String(formData.get("subscription_amount") ?? "").trim();
+    const amount = amountRaw ? Number(amountRaw) : 5;
+    if (Number.isNaN(amount) || amount <= 0) return { ok: false, message: "Valor inválido." };
+
+    const { error } = await supabase
+      .from("platform_settings")
+      .update({
+        pix_key: pixKey || null,
+        pix_receiver_name: pixReceiverName || null,
+        subscription_amount: amount,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", true);
+    if (error) return { ok: false, message: error.message };
+
+    revalidatePath("/admin/configuracoes");
+    revalidatePath("/cliente/assinatura");
+    revalidatePath("/prestador/assinatura");
+    return { ok: true, message: "Configurações salvas." };
+  } catch (e) {
+    return { ok: false, message: (e as Error).message };
+  }
+}
