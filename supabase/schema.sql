@@ -446,6 +446,13 @@ create trigger on_auth_user_created
 -- Impede que um usuário comum promova o próprio role para ADMIN/PROVIDER
 -- ou se desbloqueie sozinho (is_active) via update direto na tabela
 -- (defesa em profundidade além do RLS — item 8 da Fase 6).
+--
+-- Só bloqueia quando o pedido veio autenticado via API como usuário
+-- comum (não admin). Chamadas sem contexto JWT (SQL Editor / conexão
+-- direta ao banco — é assim que o primeiro admin é criado) ou com a
+-- service_role key (uso administrativo do próprio backend) sempre
+-- passam — quem tem acesso a essas duas coisas já tem controle total
+-- do banco de qualquer jeito.
 create or replace function public.prevent_role_escalation()
 returns trigger
 language plpgsql
@@ -453,7 +460,7 @@ security definer
 set search_path = public
 as $$
 begin
-  if not public.is_admin() then
+  if not public.is_admin() and auth.role() is not null and auth.role() <> 'service_role' then
     if new.role <> old.role then
       new.role := old.role;
     end if;
@@ -473,6 +480,8 @@ create trigger trg_prevent_role_escalation
 
 -- Impede que o próprio prestador aprove/rejeite/verifique a si mesmo
 -- (Fase 6, item 8/42) — só admin muda status/is_verified/status_reason.
+-- Mesma lógica de bypass do prevent_role_escalation (SQL Editor e
+-- service_role key sempre passam).
 create or replace function public.prevent_provider_status_escalation()
 returns trigger
 language plpgsql
@@ -480,7 +489,7 @@ security definer
 set search_path = public
 as $$
 begin
-  if not public.is_admin() then
+  if not public.is_admin() and auth.role() is not null and auth.role() <> 'service_role' then
     new.status := old.status;
     new.is_verified := old.is_verified;
     new.status_reason := old.status_reason;
