@@ -41,7 +41,7 @@ export function Logo({ className, subtitle = true }: { className?: string; subti
       <LogoMark />
       <div className="leading-tight">
         <div className="flex items-baseline gap-1">
-          <span className="font-extrabold tracking-tight text-brand">JENDIRA</span>
+          <span className="font-extrabold tracking-tight text-brand">JANDIRA</span>
           <span className="font-light tracking-widest text-foreground">SERVICE</span>
         </div>
         {subtitle && (

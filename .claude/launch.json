@@ -2,7 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "jendira-dev",
+      "name": "jandira-dev",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--", "--webpack"],
       "port": 3000

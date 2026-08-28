@@ -1,4 +1,4 @@
-# Jendira Service — Especificação do Projeto (referência)
+# Jandira Service — Especificação do Projeto (referência)
 
 Este arquivo guarda as decisões tomadas na FASE 1 para o time (e para você) não perder o fio.
 
@@ -115,6 +115,41 @@ o Supabase de verdade:
   de um Server Component — isso quebra no React/Next atual ("Only plain
   objects can be passed..."). Corrigido passando o ícone já renderizado
   (`<Home />`) em vez do componente cru.
+
+## Fase 4 — Busca, match regional e perfil do prestador (decisões)
+
+- **Nome do projeto corrigido**: era "Jendira Service" (erro de digitação
+  arrastado desde a primeira mensagem), o certo é **Jandira Service**
+  (mesmo nome da cidade). Renomeado em todo o código, textos, e-mails
+  demo e no `package.json`.
+- **Admin**: só o dono acessa por enquanto — nada a mudar no código,
+  continua sendo promovido manualmente por SQL (`update users set
+  role='ADMIN'`) quando chegar a hora de dar acesso a mais alguém.
+- **`search_providers` ganhou paginação** (`p_limit`/`p_offset`, 20 por
+  página — item 42/43) e passou a devolver `other_regions` (pra mostrar
+  "atende também" no card — item 12) buscando o bairro do prestador via
+  `user_addresses` (Fase 3.1), não mais um `region_id` solto.
+- **Filtros são só no que já foi buscado** (item 14): avaliação mínima,
+  verificado, preço — filtrados no array já carregado no navegador, sem
+  round-trip novo no banco. Dataset por bairro é pequeno o suficiente
+  pra isso ser instantâneo e ainda assim seguir o item 43 (banco filtra
+  o essencial — serviço+região —, o resto é refinamento leve).
+- **`service_requests` ganhou `preferred_date`/`preferred_time`** (o
+  formulário de solicitar mostrava esses campos mas o banco não tinha
+  onde guardar).
+- **Fluxo de status implementado**: PENDING → ACCEPTED/DECLINED
+  (prestador, botões em `/prestador/solicitacoes`) → COMPLETED
+  (prestador marca "concluído") → cliente avalia. Cliente pode
+  CANCELLED enquanto não estiver COMPLETED/CANCELLED. Toda transição é
+  validada no server action (não só no RLS) — ver
+  `service-request-actions.ts`.
+- **"Sugerir um prestador"** (item 15) ficou de fora — não existe
+  schema pra isso e não foi pedido antes; se quiser, dá pra tratar como
+  uma Fase própria depois (ex: reaproveitando o padrão de
+  `region_suggestions`).
+- **Favoritos e avaliações**: só reaproveitaram tabelas/RLS que já
+  existiam desde a Fase 1 (`favorites`, `reviews` + trigger
+  `update_provider_rating`) — a novidade foi só a UI.
 
 ## Fases
 

@@ -7,7 +7,7 @@ export default function LoginPage() {
   return (
     <AuthShell
       title="Entrar"
-      subtitle="Acesse sua conta Jendira Service"
+      subtitle="Acesse sua conta Jandira Service"
       footer={
         <>
           Ainda não tem conta?{" "}

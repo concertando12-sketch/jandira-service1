@@ -297,6 +297,8 @@ export interface Database {
           complement: string | null;
           latitude: number | null;
           longitude: number | null;
+          preferred_date: string | null;
+          preferred_time: string | null;
           status: RequestStatus;
           created_at: string;
           updated_at: string;
@@ -419,7 +421,12 @@ export interface Database {
     Views: Record<string, never>;
     Functions: {
       search_providers: {
-        Args: { p_service_slug: string; p_region_id: string };
+        Args: {
+          p_service_slug: string;
+          p_region_id: string;
+          p_limit?: number;
+          p_offset?: number;
+        };
         Returns: {
           provider_id: string;
           professional_name: string;
@@ -427,11 +434,13 @@ export interface Database {
           description: string | null;
           price_from: number | null;
           price_to: number | null;
+          availability: string | null;
           rating_avg: number;
           rating_count: number;
           is_verified: boolean;
           profile_completion: number;
           home_region_name: string | null;
+          other_regions: string[];
         }[];
       };
       is_admin: { Args: Record<string, never>; Returns: boolean };

@@ -1,5 +1,5 @@
 -- =====================================================================
--- JENDIRA SERVICE — SEED (dados de referência)
+-- JANDIRA SERVICE — SEED (dados de referência)
 -- Rode depois do supabase/schema.sql.
 -- Idempotente: pode rodar de novo sem duplicar (usa ON CONFLICT).
 --

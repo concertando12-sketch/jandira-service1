@@ -90,7 +90,7 @@ export default function Home() {
 
       <footer className="flex items-center justify-center gap-2 border-t border-border px-6 py-6 text-xs text-muted">
         <LogoMark className="h-4 w-4" />
-        Jendira Service — Soluções que facilitam sua vida
+        Jandira Service — Soluções que facilitam sua vida
       </footer>
     </div>
   );

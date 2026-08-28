@@ -47,7 +47,7 @@ export default async function PrestadorDashboardPage() {
   return (
     <div>
       <h1 className="text-xl font-bold text-foreground sm:text-2xl">Olá, {firstName}! 👋</h1>
-      <p className="mt-1 text-sm text-muted">Este é o resumo do seu negócio na Jendira Service.</p>
+      <p className="mt-1 text-sm text-muted">Este é o resumo do seu negócio na Jandira Service.</p>
 
       {regionsCount === 0 && (
         <Card className="mt-6 flex flex-col items-start gap-3 border-brand/40 bg-brand/10 sm:flex-row sm:items-center sm:justify-between">

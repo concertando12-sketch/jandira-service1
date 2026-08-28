@@ -1,5 +1,5 @@
 -- =====================================================================
--- JENDIRA SERVICE — SCHEMA
+-- JANDIRA SERVICE — SCHEMA
 -- Marketplace regional de serviços — Jandira/SP
 --
 -- Como usar:
@@ -213,6 +213,8 @@ create table if not exists public.service_requests (
   complement text,
   latitude numeric(9,6),
   longitude numeric(9,6),
+  preferred_date date,
+  preferred_time time,
   status request_status not null default 'PENDING',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -386,13 +388,19 @@ create trigger trg_touch_user_addresses
   for each row execute function public.touch_updated_at();
 
 -- ---------------------------------------------------------------------
--- MOTOR DE BUSCA / MATCH (Parte 2 — sem raio, sem Google Maps)
+-- MOTOR DE BUSCA / MATCH (Fase 4, item 8/13/21/22 — sem raio, sem
+-- Google Maps, sem texto: o cruzamento é 100% por service_id/region_id).
 -- Encontra prestadores ativos que oferecem o serviço E que marcaram o
--- bairro pesquisado como atendido (provider_regions), sempre dentro da
--- mesma cidade do bairro. Ordem (item 10): verificado > avaliação >
--- perfil completo.
+-- bairro pesquisado como atendido (provider_regions). Ordem (item 13):
+-- verificado > avaliação > nº de avaliações > perfil completo.
+-- Paginado (item 42/43) — não devolve tudo de uma vez.
 -- ---------------------------------------------------------------------
-create or replace function public.search_providers(p_service_slug text, p_region_id uuid)
+create or replace function public.search_providers(
+  p_service_slug text,
+  p_region_id uuid,
+  p_limit int default 20,
+  p_offset int default 0
+)
 returns table (
   provider_id uuid,
   professional_name text,
@@ -400,11 +408,13 @@ returns table (
   description text,
   price_from numeric,
   price_to numeric,
+  availability text,
   rating_avg numeric,
   rating_count int,
   is_verified boolean,
   profile_completion int,
-  home_region_name text
+  home_region_name text,
+  other_regions text[]
 )
 language sql
 stable
@@ -418,11 +428,21 @@ as $$
     pp.description,
     pp.price_from,
     pp.price_to,
+    pp.availability,
     pp.rating_avg,
     pp.rating_count,
     pp.is_verified,
     pp.profile_completion,
-    hr.name
+    hr.name,
+    coalesce(
+      (
+        select array_agg(r2.name order by r2.name)
+        from public.provider_regions pr2
+        join public.regions r2 on r2.id = pr2.region_id
+        where pr2.provider_id = pp.id and pr2.region_id <> p_region_id
+      ),
+      '{}'
+    )
   from public.provider_profiles pp
   join public.provider_services ps on ps.provider_id = pp.id
   join public.services s on s.id = ps.service_id and s.slug = p_service_slug and s.is_active
@@ -430,7 +450,8 @@ as $$
   left join public.user_addresses ua on ua.user_id = pp.user_id
   left join public.regions hr on hr.id = ua.region_id
   where pp.is_active = true
-  order by pp.is_verified desc, pp.rating_avg desc nulls last, pp.profile_completion desc;
+  order by pp.is_verified desc, pp.rating_avg desc nulls last, pp.rating_count desc, pp.profile_completion desc
+  limit p_limit offset p_offset;
 $$;
 
 -- Aprova uma sugestão de bairro: cria a região oficial (evitando
@@ -670,6 +691,6 @@ create policy "favorites_all_own" on public.favorites for all
 -- rejeitar bairro (protegidas por is_admin() dentro da própria função)
 -- são chamáveis via API — não depender do privilégio padrão do projeto.
 -- =====================================================================
-grant execute on function public.search_providers(text, uuid) to anon, authenticated;
+grant execute on function public.search_providers(text, uuid, int, int) to anon, authenticated;
 grant execute on function public.approve_region_suggestion(uuid) to authenticated;
 grant execute on function public.reject_region_suggestion(uuid) to authenticated;

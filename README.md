@@ -1,4 +1,4 @@
-# Jendira Service
+# Jandira Service
 
 Marketplace regional de serviços — **Jandira/SP**. Conecta clientes que
 precisam de um serviço a prestadores que atendem a região. Pensado para
@@ -44,10 +44,21 @@ Supabase de verdade.
 - Endereço do prestador (onde mora) e região de atendimento (onde
   atende) são telas separadas, do jeito que foi pedido
 - `service_requests` já com os campos de endereço prontos pro pedido
-  "congelar" o endereço usado (a tela de solicitar continua Fase 5)
+  "congelar" o endereço usado
 - Endereço nunca aparece completo em telas públicas — só o bairro
 
-- ⏳ Solicitação de serviço, aceitar/recusar, avaliações → próximas fases
+**Fase 4 — Busca, match regional e perfil do prestador** ✅
+- Perfil público do prestador (`/cliente/prestador/[id]`): avaliações, serviços,
+  regiões atendidas, favoritar, solicitar, falar no WhatsApp
+- Busca com filtros (avaliação, verificado, preço), paginação ("carregar mais") e
+  "atende também" no card
+- Fluxo completo de solicitação: cliente pede → prestador aceita/recusa
+  (`/prestador/solicitacoes`) → marca concluído → cliente avalia
+  (`/cliente/solicitacoes`)
+- Favoritos (`/cliente/favoritos`) e avaliações com média recalculada automaticamente
+- URL compartilhável: `/cliente/buscar?servico=baba&bairro=novo-horizonte`
+
+- ⏳ Notificações, histórico do prestador, refinamentos de perfil → próximas fases
   (ver `PROJETO_SPEC.md`)
 
 ## 1. Configurar o Supabase

@@ -4,13 +4,14 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { APP_CITY, APP_STATE } from "@/lib/constants";
 import { BuscarForm } from "./buscar-form";
 
+// URL compartilhável (item 24 da Fase 4): /cliente/buscar?servico=baba&bairro=novo-horizonte
 export default async function ClienteBuscarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ servico?: string }>;
+  searchParams: Promise<{ servico?: string; bairro?: string }>;
 }) {
   const user = await requireRole("CLIENT");
-  const { servico } = await searchParams;
+  const { servico, bairro } = await searchParams;
   const supabase = await createClient();
 
   const { data: city } = await supabase
@@ -20,20 +21,21 @@ export default async function ClienteBuscarPage({
     .eq("state", APP_STATE)
     .maybeSingle();
 
-  const [{ data: services }, { data: regions }, { data: address }] = await Promise.all([
+  const [{ data: services }, { data: regions }, { data: address }, { data: favorites }] = await Promise.all([
     supabase
       .from("services")
       .select("id, name, slug, categories(name)")
       .eq("is_active", true)
       .order("name"),
     city
-      ? supabase.from("regions").select("id, name").eq("city_id", city.id).eq("is_active", true).order("name")
-      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      ? supabase.from("regions").select("id, name, slug").eq("city_id", city.id).eq("is_active", true).order("name")
+      : Promise.resolve({ data: [] as { id: string; name: string; slug: string }[] }),
     supabase
       .from("user_addresses")
       .select("region_id, regions(name)")
       .eq("user_id", user.id)
       .maybeSingle(),
+    supabase.from("favorites").select("provider_id").eq("client_id", user.id),
   ]);
 
   const serviceOptions = (services ?? []).map((s) => ({
@@ -44,10 +46,11 @@ export default async function ClienteBuscarPage({
   }));
 
   // Item 9/12 da Fase 3.1: se o cliente já tem bairro salvo, usa
-  // automaticamente. Se também veio com ?servico= (ex: link de uma
-  // categoria), já busca no servidor — sem round-trip extra no cliente.
-  const initialRegionId = address?.region_id ?? null;
-  const initialRegionName = address?.regions?.name ?? null;
+  // automaticamente. `?bairro=slug` na URL tem prioridade (link
+  // compartilhado) — some sozinho da URL se ninguém informar nenhum.
+  const regionFromUrl = bairro ? (regions ?? []).find((r) => r.slug === bairro) : null;
+  const initialRegionId = regionFromUrl?.id ?? address?.region_id ?? null;
+  const initialRegionName = regionFromUrl?.name ?? address?.regions?.name ?? null;
 
   let initialResults = null;
   if (servico && initialRegionId) {
@@ -63,11 +66,12 @@ export default async function ClienteBuscarPage({
       <PageHeader title="Buscar serviço" description={`Encontre prestadores em ${APP_CITY} - ${APP_STATE}`} />
       <BuscarForm
         services={serviceOptions}
-        regions={regions ?? []}
+        regions={(regions ?? []).map((r) => ({ id: r.id, name: r.name }))}
         initialServiceSlug={servico ?? ""}
         initialRegionId={initialRegionId}
         initialRegionName={initialRegionName}
         initialResults={initialResults}
+        initialFavoritedIds={(favorites ?? []).map((f) => f.provider_id)}
       />
     </div>
   );

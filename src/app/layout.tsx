@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Jendira Service — Soluções que facilitam sua vida",
+  title: "Jandira Service — Soluções que facilitam sua vida",
   description:
     "Marketplace regional de serviços de Jandira-SP. Encontre e contrate prestadores de serviço perto de você.",
 };

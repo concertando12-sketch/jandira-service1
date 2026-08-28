@@ -41,7 +41,7 @@ const DEMO_PASSWORD = "Demo123456!";
 // mora na Vila Eunice mas atende Centro e Novo Horizonte também).
 const DEMO_PROVIDERS = [
   {
-    email: "ana.souza.demo@jendiraservice.com",
+    email: "ana.souza.demo@jandiraservice.com",
     name: "Ana Souza",
     phone: "(11) 90000-0001",
     professionalName: "Ana Souza",
@@ -56,7 +56,7 @@ const DEMO_PROVIDERS = [
     verified: true,
   },
   {
-    email: "carlos.oliveira.demo@jendiraservice.com",
+    email: "carlos.oliveira.demo@jandiraservice.com",
     name: "Carlos Oliveira",
     phone: "(11) 90000-0002",
     professionalName: "Carlos Oliveira",
@@ -71,7 +71,7 @@ const DEMO_PROVIDERS = [
     verified: true,
   },
   {
-    email: "maria.santos.demo@jendiraservice.com",
+    email: "maria.santos.demo@jandiraservice.com",
     name: "Maria Santos",
     phone: "(11) 90000-0003",
     professionalName: "Maria Santos",
@@ -86,7 +86,7 @@ const DEMO_PROVIDERS = [
     verified: false,
   },
   {
-    email: "joao.pereira.demo@jendiraservice.com",
+    email: "joao.pereira.demo@jandiraservice.com",
     name: "João Pereira",
     phone: "(11) 90000-0004",
     professionalName: "João Pereira",
@@ -106,7 +106,7 @@ const DEMO_PROVIDERS = [
 // testar o teste principal da spec (item 49) direto: Cliente Teste
 // busca "Babá" e a Ana já aparece automaticamente pelo bairro salvo.
 const DEMO_CLIENT = {
-  email: "cliente.teste.demo@jendiraservice.com",
+  email: "cliente.teste.demo@jandiraservice.com",
   name: "Cliente Teste",
   phone: "(11) 90000-0000",
   homeRegion: "Novo Horizonte",
