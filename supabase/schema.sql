@@ -28,7 +28,7 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 
 do $$ begin
-  create type request_status as enum ('PENDING', 'ACCEPTED', 'DECLINED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED');
+  create type request_status as enum ('PENDING', 'ACCEPTED', 'DECLINED', 'SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED');
 exception when duplicate_object then null; end $$;
 
 do $$ begin
@@ -199,6 +199,14 @@ create index if not exists idx_provider_regions_region on public.provider_region
 -- Guarda o endereço "congelado" no momento da solicitação (item 14/15
 -- da Fase 3.1) — se o cliente mudar de endereço depois, o pedido
 -- antigo continua com o endereço de quando foi feito.
+--
+-- Fluxo de status (Fase 5, item 2):
+--   PENDING -> ACCEPTED -> SCHEDULED -> IN_PROGRESS -> COMPLETED
+--   PENDING -> DECLINED
+--   PENDING/ACCEPTED/SCHEDULED -> CANCELLED
+-- Validado de verdade no trigger enforce_service_request_transition
+-- (mais abaixo) — não dá pra pular etapa nem trocar de ator só
+-- chamando a API do Supabase direto (item 38/39).
 -- ---------------------------------------------------------------------
 create table if not exists public.service_requests (
   id uuid primary key default gen_random_uuid(),
@@ -213,9 +221,14 @@ create table if not exists public.service_requests (
   complement text,
   latitude numeric(9,6),
   longitude numeric(9,6),
-  preferred_date date,
-  preferred_time time,
+  requested_date date,
+  requested_time time,
   status request_status not null default 'PENDING',
+  -- Preenchidos pelo prestador ao aceitar/recusar (item 14/15).
+  provider_price numeric(10,2),
+  provider_response text,
+  -- Preenchido por quem cancelar (cliente ou prestador — item 30/31).
+  cancel_reason text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -225,6 +238,10 @@ create index if not exists idx_service_requests_provider on public.service_reque
 
 -- ---------------------------------------------------------------------
 -- AVALIAÇÕES
+-- Hoje só cliente avalia prestador. Item 29 da Fase 5 pede a
+-- arquitetura pronta pra um dia o prestador também avaliar o cliente,
+-- sem implementar ainda — quando chegar a hora, dá pra fazer com uma
+-- tabela nova (ex: client_reviews) espelhando esta, sem mexer aqui.
 -- ---------------------------------------------------------------------
 create table if not exists public.reviews (
   id uuid primary key default gen_random_uuid(),
@@ -246,6 +263,25 @@ create table if not exists public.favorites (
   created_at timestamptz not null default now(),
   unique (client_id, provider_id)
 );
+
+-- ---------------------------------------------------------------------
+-- NOTIFICAÇÕES (item 34/35/36/37 da Fase 5)
+-- Só é criada via função `notify()` (mais abaixo, security definer) —
+-- não existe policy de insert direto, pra ninguém conseguir mandar
+-- notificação forjada pra outro usuário.
+-- ---------------------------------------------------------------------
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.users(id) on delete cascade,
+  title text not null,
+  message text not null,
+  type text not null default 'INFO',
+  service_request_id uuid references public.service_requests(id) on delete cascade,
+  is_read boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_notifications_user on public.notifications(user_id, is_read);
 
 -- =====================================================================
 -- FUNÇÕES AUXILIARES
@@ -386,6 +422,111 @@ drop trigger if exists trg_touch_user_addresses on public.user_addresses;
 create trigger trg_touch_user_addresses
   before update on public.user_addresses
   for each row execute function public.touch_updated_at();
+
+-- ---------------------------------------------------------------------
+-- MÁQUINA DE ESTADOS DA SOLICITAÇÃO (Fase 5, item 2/38/39/47)
+-- Isso é o que garante de verdade que ninguém — nem chamando a API do
+-- Supabase direto, pulando o app — consegue pular etapa, trocar
+-- cliente/prestador/serviço de um pedido já criado, ou inventar um
+-- provider_price/provider_response sem ser o prestador daquele pedido.
+-- O server action (service-request-actions.ts) só existe pra dar
+-- mensagem de erro amigável antes de chegar até aqui.
+-- ---------------------------------------------------------------------
+create or replace function public.enforce_service_request_transition()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_is_client boolean;
+  v_is_provider boolean;
+begin
+  if public.is_admin() then
+    return new;
+  end if;
+
+  v_is_client := auth.uid() = old.client_id;
+  v_is_provider := exists (
+    select 1 from public.provider_profiles pp
+    where pp.id = old.provider_id and pp.user_id = auth.uid()
+  );
+
+  if not v_is_client and not v_is_provider then
+    raise exception 'Você não participa dessa solicitação.';
+  end if;
+
+  if new.client_id <> old.client_id or new.provider_id <> old.provider_id or new.service_id <> old.service_id then
+    raise exception 'Não é permitido alterar cliente, prestador ou serviço de uma solicitação existente.';
+  end if;
+
+  if new.status <> old.status then
+    if v_is_provider and old.status = 'PENDING' and new.status in ('ACCEPTED', 'DECLINED') then
+      -- prestador aceita ou recusa
+    elsif v_is_client and old.status = 'ACCEPTED' and new.status = 'SCHEDULED' then
+      -- cliente confirma o valor/data combinados
+    elsif v_is_provider and old.status = 'SCHEDULED' and new.status = 'IN_PROGRESS' then
+      -- prestador inicia o serviço
+    elsif v_is_provider and old.status = 'IN_PROGRESS' and new.status = 'COMPLETED' then
+      -- prestador finaliza
+    elsif v_is_client and old.status in ('PENDING', 'ACCEPTED', 'SCHEDULED') and new.status = 'CANCELLED' then
+      -- cliente cancela antes do início
+    elsif v_is_provider and old.status = 'SCHEDULED' and new.status = 'CANCELLED' then
+      -- prestador cancela um serviço já agendado
+    else
+      raise exception 'Transição de status não permitida (% -> %).', old.status, new.status;
+    end if;
+  end if;
+
+  if new.provider_price is distinct from old.provider_price and not v_is_provider then
+    raise exception 'Só o prestador pode informar o valor do serviço.';
+  end if;
+
+  if new.provider_response is distinct from old.provider_response and not v_is_provider then
+    raise exception 'Só o prestador pode registrar essa resposta.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_enforce_service_request_transition on public.service_requests;
+create trigger trg_enforce_service_request_transition
+  before update on public.service_requests
+  for each row execute function public.enforce_service_request_transition();
+
+-- Cria uma notificação (item 34/37) — só security definer pode
+-- inserir na tabela notifications, e só a favor de alguém que
+-- realmente participa da solicitação referenciada (evita spam
+-- forjado pra outro usuário via chamada direta da API).
+create or replace function public.notify(
+  p_user_id uuid,
+  p_title text,
+  p_message text,
+  p_type text default 'INFO',
+  p_service_request_id uuid default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if p_service_request_id is not null then
+    if not exists (
+      select 1 from public.service_requests sr
+      left join public.provider_profiles pp on pp.id = sr.provider_id
+      where sr.id = p_service_request_id
+        and (sr.client_id = auth.uid() or pp.user_id = auth.uid())
+    ) then
+      raise exception 'Você não participa dessa solicitação.';
+    end if;
+  end if;
+
+  insert into public.notifications (user_id, title, message, type, service_request_id)
+  values (p_user_id, p_title, p_message, p_type, p_service_request_id);
+end;
+$$;
 
 -- ---------------------------------------------------------------------
 -- MOTOR DE BUSCA / MATCH (Fase 4, item 8/13/21/22 — sem raio, sem
@@ -534,6 +675,7 @@ alter table public.user_addresses enable row level security;
 alter table public.service_requests enable row level security;
 alter table public.reviews enable row level security;
 alter table public.favorites enable row level security;
+alter table public.notifications enable row level security;
 
 -- cities / regions: leitura pública dos ativos, escrita só admin.
 drop policy if exists "cities_select" on public.cities;
@@ -648,10 +790,17 @@ create policy "service_requests_select" on public.service_requests for select
     or exists (select 1 from public.provider_profiles pp where pp.id = service_requests.provider_id and pp.user_id = auth.uid())
     or public.is_admin()
   );
+-- Cliente só cria pedido em nome dele mesmo, sempre PENDING e sem
+-- inventar valor/resposta do prestador na hora de criar (item 38/39 —
+-- isso complementa o trigger, que só age em UPDATE).
 drop policy if exists "service_requests_insert_client" on public.service_requests;
 create policy "service_requests_insert_client" on public.service_requests for insert
   with check (
     client_id = auth.uid()
+    and status = 'PENDING'
+    and provider_price is null
+    and provider_response is null
+    and cancel_reason is null
     and exists (select 1 from public.users u where u.id = auth.uid() and u.role = 'CLIENT')
   );
 drop policy if exists "service_requests_update" on public.service_requests;
@@ -685,6 +834,16 @@ create policy "favorites_all_own" on public.favorites for all
   using (client_id = auth.uid())
   with check (client_id = auth.uid());
 
+-- notifications: cada um só vê/marca como lida as próprias. Sem
+-- policy de insert — só a função notify() (security definer) cria.
+drop policy if exists "notifications_select_own" on public.notifications;
+create policy "notifications_select_own" on public.notifications for select
+  using (user_id = auth.uid() or public.is_admin());
+drop policy if exists "notifications_update_own" on public.notifications;
+create policy "notifications_update_own" on public.notifications for update
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
 -- =====================================================================
 -- PERMISSÕES DAS FUNÇÕES RPC
 -- Garante explicitamente que a busca (pública) e as ações de aprovar/
@@ -692,5 +851,6 @@ create policy "favorites_all_own" on public.favorites for all
 -- são chamáveis via API — não depender do privilégio padrão do projeto.
 -- =====================================================================
 grant execute on function public.search_providers(text, uuid, int, int) to anon, authenticated;
+grant execute on function public.notify(uuid, text, text, text, uuid) to authenticated;
 grant execute on function public.approve_region_suggestion(uuid) to authenticated;
 grant execute on function public.reject_region_suggestion(uuid) to authenticated;

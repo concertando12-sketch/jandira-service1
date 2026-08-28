@@ -151,6 +151,47 @@ o Supabase de verdade:
   existiam desde a Fase 1 (`favorites`, `reviews` + trigger
   `update_provider_rating`) — a novidade foi só a UI.
 
+## Fase 5 — Solicitação, negociação e acompanhamento (decisões)
+
+- **Novo status `SCHEDULED`** entre `ACCEPTED` e `IN_PROGRESS`: prestador
+  aceita e informa o valor (`provider_price`) → **cliente confirma**
+  (`ACCEPTED → SCHEDULED`, item 18) → prestador inicia
+  (`SCHEDULED → IN_PROGRESS`) → prestador finaliza
+  (`IN_PROGRESS → COMPLETED`). Cancelamento tem motivo
+  (`cancel_reason`) e só é permitido em `PENDING/ACCEPTED/SCHEDULED`
+  pelo cliente, ou em `SCHEDULED` pelo prestador (item 30/31).
+- **`preferred_date`/`preferred_time` viraram `requested_date`/
+  `requested_time`** — nome exato pedido no item 1, e passaram a ser
+  obrigatórios no formulário de solicitar (o item 7 lista "data válida"
+  e "horário válido" como validação).
+- **Segurança de verdade, não só no server action** (item 38/39/47):
+  criei o trigger `enforce_service_request_transition` no Postgres —
+  ele é quem decide de fato se `PENDING → ACCEPTED` é permitido, se
+  quem está mudando o status é o ator certo (cliente vs prestador), e
+  bloqueia qualquer tentativa de alterar `client_id`/`provider_id`/
+  `service_id`/`provider_price`/`provider_response` por quem não pode.
+  Isso vale mesmo se alguém chamar a API do Supabase direto, pulando o
+  app inteiro — RLS sozinho não bastava pra isso (só decide se a linha
+  pode ser tocada, não *como*). O server action continua existindo só
+  pra dar mensagem de erro amigável antes de chegar no banco.
+- **Notificações internas** (item 34-37): tabela `notifications` +
+  função `notify()` (security definer, só insere se quem está chamando
+  participa da solicitação referenciada — evita spam forjado). Sino no
+  menu com contador, marca tudo como lido ao abrir a tela.
+- **Item 29** (prestador avaliar cliente no futuro): não implementado
+  de propósito, só documentado — ver comentário em `reviews` no
+  schema.sql.
+- **Página de detalhe do cliente** (`/cliente/solicitacoes/[id]`, item
+  11) concentra as ações reais (confirmar, cancelar, WhatsApp, avaliar)
+  — a lista (`/cliente/solicitacoes`) ficou só com card resumido +
+  abas de status (item 9/10), sem repetir os botões pesados. Do lado
+  do prestador, as ações continuam na própria lista (item 12/13 já
+  mostra os botões direto no card) — não criei uma página de detalhe
+  separada pra ele.
+- **"Histórico"** (item 32/33) não virou uma tela nova — as abas de
+  status dentro de `/cliente/solicitacoes` e `/prestador/solicitacoes`
+  (+ o resumo numérico no topo da tela do prestador) já cobrem isso.
+
 ## Fases
 
 Ver spec completa enviada pelo cliente. Ordem de execução: Fase 1 → Fase 8, uma de

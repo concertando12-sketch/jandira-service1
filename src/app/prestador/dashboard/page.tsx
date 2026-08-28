@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bell, CheckCircle2, Star, UserCircle2 } from "lucide-react";
+import { Bell, CalendarCheck2, CheckCircle2, Star, UserCircle2 } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
@@ -17,27 +17,35 @@ export default async function PrestadorDashboardPage() {
     .maybeSingle();
 
   let newRequests = 0;
+  let scheduledRequests = 0;
   let completedRequests = 0;
   let regionsCount = 0;
 
   if (profile) {
-    const [{ count: newCount }, { count: completedCount }, { count: regionCount }] = await Promise.all([
-      supabase
-        .from("service_requests")
-        .select("id", { count: "exact", head: true })
-        .eq("provider_id", profile.id)
-        .eq("status", "PENDING"),
-      supabase
-        .from("service_requests")
-        .select("id", { count: "exact", head: true })
-        .eq("provider_id", profile.id)
-        .eq("status", "COMPLETED"),
-      supabase
-        .from("provider_regions")
-        .select("id", { count: "exact", head: true })
-        .eq("provider_id", profile.id),
-    ]);
+    const [{ count: newCount }, { count: scheduledCount }, { count: completedCount }, { count: regionCount }] =
+      await Promise.all([
+        supabase
+          .from("service_requests")
+          .select("id", { count: "exact", head: true })
+          .eq("provider_id", profile.id)
+          .eq("status", "PENDING"),
+        supabase
+          .from("service_requests")
+          .select("id", { count: "exact", head: true })
+          .eq("provider_id", profile.id)
+          .eq("status", "SCHEDULED"),
+        supabase
+          .from("service_requests")
+          .select("id", { count: "exact", head: true })
+          .eq("provider_id", profile.id)
+          .eq("status", "COMPLETED"),
+        supabase
+          .from("provider_regions")
+          .select("id", { count: "exact", head: true })
+          .eq("provider_id", profile.id),
+      ]);
     newRequests = newCount ?? 0;
+    scheduledRequests = scheduledCount ?? 0;
     completedRequests = completedCount ?? 0;
     regionsCount = regionCount ?? 0;
   }
@@ -68,16 +76,12 @@ export default async function PrestadorDashboardPage() {
 
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Solicitações novas" value={newRequests} icon={Bell} />
+        <StatCard label="Serviços agendados" value={scheduledRequests} icon={CalendarCheck2} />
         <StatCard label="Serviços concluídos" value={completedRequests} icon={CheckCircle2} />
         <StatCard
           label="Avaliação"
           value={profile && profile.rating_count > 0 ? `⭐ ${profile.rating_avg}` : "—"}
           icon={Star}
-        />
-        <StatCard
-          label="Perfil completo"
-          value={profile ? `${profile.profile_completion}%` : "0%"}
-          icon={UserCircle2}
         />
       </div>
 

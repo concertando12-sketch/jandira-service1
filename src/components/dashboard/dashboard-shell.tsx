@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, LogOut } from "lucide-react";
+import { Menu, X, LogOut, Bell } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 import { signOutAction } from "@/lib/actions/auth-actions";
@@ -16,6 +16,8 @@ export interface NavItem {
   // e Server Component não pode passar isso "cru" pra Client
   // Component como prop (só elementos React já montados).
   icon: ReactNode;
+  // Contador (ex: notificações não lidas — item 37).
+  badge?: number;
 }
 
 export function DashboardShell({
@@ -23,12 +25,16 @@ export function DashboardShell({
   roleLabel,
   userName,
   previewMode = false,
+  notificationsHref,
+  unreadCount = 0,
   children,
 }: {
   navItems: NavItem[];
   roleLabel: string;
   userName: string;
   previewMode?: boolean;
+  notificationsHref?: string;
+  unreadCount?: number;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -52,6 +58,16 @@ export function DashboardShell({
           >
             {item.icon}
             {item.label}
+            {Boolean(item.badge) && (
+              <span
+                className={cn(
+                  "ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold",
+                  active ? "bg-brand-foreground text-brand" : "bg-brand text-brand-foreground",
+                )}
+              >
+                {item.badge}
+              </span>
+            )}
           </Link>
         );
       })}
@@ -126,7 +142,18 @@ export function DashboardShell({
             <Menu className="h-6 w-6 text-foreground" />
           </button>
           <Logo subtitle={false} />
-          <div className="w-6" />
+          {notificationsHref ? (
+            <Link href={notificationsHref} className="relative" aria-label="Notificações">
+              <Bell className="h-6 w-6 text-foreground" />
+              {unreadCount > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-bold text-brand-foreground">
+                  {unreadCount}
+                </span>
+              )}
+            </Link>
+          ) : (
+            <div className="w-6" />
+          )}
         </header>
 
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-10">{children}</main>

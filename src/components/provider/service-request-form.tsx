@@ -36,8 +36,9 @@ export function ServiceRequestForm({
     startTransition(async () => {
       const result = await createServiceRequestAction(formData);
       setFeedback(result);
-      if (result.ok) {
-        router.push("/cliente/solicitacoes");
+      if (result.ok && result.requestId) {
+        // Item 8: leva direto pra "ver solicitação" — sem tela extra.
+        router.push(`/cliente/solicitacoes/${result.requestId}`);
       }
     });
   }
@@ -106,12 +107,12 @@ export function ServiceRequestForm({
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="preferred_date">Data (opcional)</Label>
-          <Input id="preferred_date" name="preferred_date" type="date" />
+          <Label htmlFor="requested_date">Data</Label>
+          <Input id="requested_date" name="requested_date" type="date" required />
         </div>
         <div>
-          <Label htmlFor="preferred_time">Horário (opcional)</Label>
-          <Input id="preferred_time" name="preferred_time" type="time" />
+          <Label htmlFor="requested_time">Horário</Label>
+          <Input id="requested_time" name="requested_time" type="time" required />
         </div>
       </div>
 

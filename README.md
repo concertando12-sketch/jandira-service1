@@ -58,8 +58,21 @@ Supabase de verdade.
 - Favoritos (`/cliente/favoritos`) e avaliações com média recalculada automaticamente
 - URL compartilhável: `/cliente/buscar?servico=baba&bairro=novo-horizonte`
 
-- ⏳ Notificações, histórico do prestador, refinamentos de perfil → próximas fases
-  (ver `PROJETO_SPEC.md`)
+**Fase 5 — Solicitação, negociação e acompanhamento** ✅
+- Fluxo completo: pedido → prestador aceita **com valor** ou recusa **com motivo** →
+  cliente confirma → prestador inicia → prestador finaliza → cliente avalia
+- Cancelamento com motivo, pelo cliente (antes de começar) ou pelo prestador (serviço
+  já agendado)
+- Toda transição de status validada num trigger do Postgres, não só no app — nem
+  chamando a API do Supabase direto dá pra pular etapa ou alterar preço/status por
+  fora
+- Notificações internas (sino no menu com contador) nos momentos-chave: nova
+  solicitação, aceita, recusada, confirmada, concluída, cancelada
+- Página de detalhe da solicitação (`/cliente/solicitacoes/[id]`) e abas de status
+  nas duas listas
+
+- ⏳ Refinamentos de perfil profissional, admin (regiões, verificação em lote) →
+  próximas fases (ver `PROJETO_SPEC.md`)
 
 ## 1. Configurar o Supabase
 

@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { ClipboardList, Heart, MapPin, Search, Star } from "lucide-react";
+import { CalendarCheck2, CheckCircle2, Clock3, MapPin, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
-import { Card } from "@/components/ui/card";
+import { Card, Badge } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { APP_CITY } from "@/lib/constants";
 
@@ -10,25 +10,40 @@ export default async function ClienteDashboardPage() {
   const user = await requireRole("CLIENT");
   const supabase = await createClient();
 
-  const [{ count: openRequests }, { count: favoritesCount }, { data: categories }, { data: address }] =
-    await Promise.all([
-      supabase
-        .from("service_requests")
-        .select("id", { count: "exact", head: true })
-        .eq("client_id", user.id)
-        .in("status", ["PENDING", "ACCEPTED", "IN_PROGRESS"]),
-      supabase
-        .from("favorites")
-        .select("id", { count: "exact", head: true })
-        .eq("client_id", user.id),
-      supabase
-        .from("categories")
-        .select("id, name, slug, icon")
-        .eq("is_active", true)
-        .order("name")
-        .limit(8),
-      supabase.from("user_addresses").select("regions(name)").eq("user_id", user.id).maybeSingle(),
-    ]);
+  const [
+    { count: pendingCount },
+    { count: scheduledCount },
+    { count: completedCount },
+    { data: categories },
+    { data: address },
+    { data: nextService },
+  ] = await Promise.all([
+    supabase
+      .from("service_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("client_id", user.id)
+      .eq("status", "PENDING"),
+    supabase
+      .from("service_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("client_id", user.id)
+      .eq("status", "SCHEDULED"),
+    supabase
+      .from("service_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("client_id", user.id)
+      .eq("status", "COMPLETED"),
+    supabase.from("categories").select("id, name, slug, icon").eq("is_active", true).order("name").limit(8),
+    supabase.from("user_addresses").select("regions(name)").eq("user_id", user.id).maybeSingle(),
+    supabase
+      .from("service_requests")
+      .select("id, requested_date, requested_time, services(name), provider_profiles(professional_name)")
+      .eq("client_id", user.id)
+      .eq("status", "SCHEDULED")
+      .order("requested_date", { ascending: true, nullsFirst: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
   const firstName = user.name.split(" ")[0] || user.name;
   const regionName = address?.regions?.name ?? null;
@@ -60,10 +75,46 @@ export default async function ClienteDashboardPage() {
         Buscar serviço (ex: eletricista, babá, diarista...)
       </Link>
 
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <StatLink href="/cliente/solicitacoes" icon={ClipboardList} label="Pedidos ativos" value={openRequests ?? 0} />
-        <StatLink href="/cliente/favoritos" icon={Heart} label="Favoritos" value={favoritesCount ?? 0} />
-        <StatLink href="/cliente/solicitacoes" icon={Star} label="Avaliações feitas" value={0} />
+      {nextService && (
+        <Link href={`/cliente/solicitacoes/${nextService.id}`}>
+          <Card className="mt-6 flex items-center justify-between gap-3 border-brand/40 bg-brand/5 transition-colors hover:border-brand">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                Próximo serviço
+              </p>
+              <p className="mt-1 font-semibold text-foreground">
+                {nextService.services?.name} — {nextService.provider_profiles?.professional_name}
+              </p>
+              <p className="mt-1 text-xs text-muted">
+                {nextService.requested_date &&
+                  `📅 ${new Date(`${nextService.requested_date}T00:00:00`).toLocaleDateString("pt-BR")}`}
+                {nextService.requested_time && ` · 🕐 ${nextService.requested_time.slice(0, 5)}`}
+              </p>
+            </div>
+            <Badge variant="success">🟢 Confirmado</Badge>
+          </Card>
+        </Link>
+      )}
+
+      <div className="mt-6 grid grid-cols-3 gap-3">
+        <StatLink
+          href="/cliente/solicitacoes"
+          icon={Clock3}
+          label="Pendentes"
+          value={pendingCount ?? 0}
+        />
+        <StatLink
+          href="/cliente/solicitacoes"
+          icon={CalendarCheck2}
+          label="Agendados"
+          value={scheduledCount ?? 0}
+        />
+        <StatLink
+          href="/cliente/solicitacoes"
+          icon={CheckCircle2}
+          label="Concluídos"
+          value={completedCount ?? 0}
+        />
       </div>
 
       <div className="mt-8">
@@ -114,20 +165,16 @@ function StatLink({
   value,
 }: {
   href: string;
-  icon: typeof ClipboardList;
+  icon: typeof Clock3;
   label: string;
   value: number;
 }) {
   return (
     <Link href={href}>
-      <Card className="flex items-center gap-3 transition-colors hover:border-brand/50">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/15">
-          <Icon className="h-5 w-5 text-brand" />
-        </div>
-        <div>
-          <p className="text-lg font-bold leading-none text-foreground">{value}</p>
-          <p className="mt-1 text-xs text-muted">{label}</p>
-        </div>
+      <Card className="flex flex-col items-center gap-1 py-4 text-center transition-colors hover:border-brand/50">
+        <Icon className="h-5 w-5 text-brand" />
+        <p className="text-lg font-bold leading-none text-foreground">{value}</p>
+        <p className="text-xs text-muted">{label}</p>
       </Card>
     </Link>
   );

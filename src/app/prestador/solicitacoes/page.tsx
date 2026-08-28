@@ -2,10 +2,8 @@ import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Card } from "@/components/ui/card";
-import {
-  ProviderRequestCard,
-  type ProviderRequestCardData,
-} from "@/components/provider/provider-request-card";
+import { ProviderRequestsTabList } from "@/components/provider/requests-tab-list";
+import type { ProviderRequestCardData } from "@/components/provider/provider-request-card";
 import type { RequestStatus } from "@/lib/constants";
 
 export default async function PrestadorSolicitacoesPage() {
@@ -22,7 +20,7 @@ export default async function PrestadorSolicitacoesPage() {
     ? await supabase
         .from("service_requests")
         .select(
-          `id, status, created_at, description, street, number, complement, preferred_date, preferred_time,
+          `id, status, description, street, number, complement, requested_date, requested_time, provider_price,
            services(name),
            users(name),
            regions(name)`,
@@ -40,10 +38,17 @@ export default async function PrestadorSolicitacoesPage() {
     street: r.street,
     number: r.number,
     complement: r.complement,
-    preferredDate: r.preferred_date,
-    preferredTime: r.preferred_time,
+    requestedDate: r.requested_date,
+    requestedTime: r.requested_time,
     description: r.description,
+    providerPrice: r.provider_price,
   }));
+
+  // Histórico resumido (item 33).
+  const total = cards.length;
+  const accepted = cards.filter((c) => c.status !== "PENDING" && c.status !== "DECLINED").length;
+  const completed = cards.filter((c) => c.status === "COMPLETED").length;
+  const cancelled = cards.filter((c) => c.status === "CANCELLED").length;
 
   return (
     <div>
@@ -55,16 +60,37 @@ export default async function PrestadorSolicitacoesPage() {
           <span className="font-medium text-foreground">Minha região</span> pra começar a
           receber pedidos.
         </Card>
-      ) : cards.length > 0 ? (
-        <div className="flex flex-col gap-3">
-          {cards.map((c) => (
-            <ProviderRequestCard key={c.id} data={c} />
-          ))}
-        </div>
       ) : (
-        <Card className="py-14 text-center text-sm text-muted">
-          Nenhuma solicitação ainda. Assim que um cliente pedir seu serviço, aparece aqui.
-        </Card>
+        <>
+          {total > 0 && (
+            <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Card className="text-center">
+                <p className="text-lg font-bold text-foreground">{total}</p>
+                <p className="text-xs text-muted">Recebidas</p>
+              </Card>
+              <Card className="text-center">
+                <p className="text-lg font-bold text-foreground">{accepted}</p>
+                <p className="text-xs text-muted">Aceitas</p>
+              </Card>
+              <Card className="text-center">
+                <p className="text-lg font-bold text-foreground">{completed}</p>
+                <p className="text-xs text-muted">Concluídas</p>
+              </Card>
+              <Card className="text-center">
+                <p className="text-lg font-bold text-foreground">{cancelled}</p>
+                <p className="text-xs text-muted">Canceladas</p>
+              </Card>
+            </div>
+          )}
+
+          {cards.length > 0 ? (
+            <ProviderRequestsTabList requests={cards} />
+          ) : (
+            <Card className="py-14 text-center text-sm text-muted">
+              Nenhuma solicitação ainda. Assim que um cliente pedir seu serviço, aparece aqui.
+            </Card>
+          )}
+        </>
       )}
     </div>
   );

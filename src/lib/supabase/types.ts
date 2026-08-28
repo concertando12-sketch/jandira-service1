@@ -11,6 +11,7 @@ export type RequestStatus =
   | "PENDING"
   | "ACCEPTED"
   | "DECLINED"
+  | "SCHEDULED"
   | "IN_PROGRESS"
   | "COMPLETED"
   | "CANCELLED";
@@ -297,9 +298,12 @@ export interface Database {
           complement: string | null;
           latitude: number | null;
           longitude: number | null;
-          preferred_date: string | null;
-          preferred_time: string | null;
+          requested_date: string | null;
+          requested_time: string | null;
           status: RequestStatus;
+          provider_price: number | null;
+          provider_response: string | null;
+          cancel_reason: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -417,6 +421,40 @@ export interface Database {
           },
         ];
       };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          message: string;
+          type: string;
+          service_request_id: string | null;
+          is_read: boolean;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["notifications"]["Row"]> & {
+          user_id: string;
+          title: string;
+          message: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["notifications"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "notifications_service_request_id_fkey";
+            columns: ["service_request_id"];
+            isOneToOne: false;
+            referencedRelation: "service_requests";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -454,6 +492,16 @@ export interface Database {
       };
       reject_region_suggestion: {
         Args: { p_suggestion_id: string };
+        Returns: undefined;
+      };
+      notify: {
+        Args: {
+          p_user_id: string;
+          p_title: string;
+          p_message: string;
+          p_type?: string;
+          p_service_request_id?: string | null;
+        };
         Returns: undefined;
       };
     };

@@ -14,9 +14,10 @@ export const ROLE_LABELS = {
 export type UserRole = keyof typeof ROLE_LABELS;
 
 export const REQUEST_STATUS_LABELS = {
-  PENDING: "Pendente",
+  PENDING: "Aguardando resposta",
   ACCEPTED: "Aceita",
   DECLINED: "Recusada",
+  SCHEDULED: "Agendada",
   IN_PROGRESS: "Em andamento",
   COMPLETED: "Concluída",
   CANCELLED: "Cancelada",
