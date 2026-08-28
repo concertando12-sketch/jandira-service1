@@ -170,11 +170,17 @@ create table if not exists public.service_suggestions (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   category_id uuid references public.categories(id),
+  -- Preenchido em vez de category_id quando o prestador não achou
+  -- nenhuma categoria que sirva e sugere uma nova junto do serviço —
+  -- a categoria também só vira oficial quando o admin aprovar (ver
+  -- approve_service_suggestion).
+  suggested_category_name text,
   submitted_by uuid references public.users(id) on delete set null,
   status suggestion_status not null default 'PENDING',
   created_service_id uuid references public.services(id),
   created_at timestamptz not null default now(),
-  reviewed_at timestamptz
+  reviewed_at timestamptz,
+  check (category_id is not null or suggested_category_name is not null)
 );
 
 -- ---------------------------------------------------------------------
@@ -818,6 +824,8 @@ as $$
 declare
   v_suggestion public.service_suggestions%rowtype;
   v_slug text;
+  v_cat_slug text;
+  v_category_id uuid;
   v_service_id uuid;
 begin
   if not public.is_admin() then
@@ -831,8 +839,23 @@ begin
   if v_suggestion.status <> 'PENDING' then
     raise exception 'Essa sugestão já foi analisada.';
   end if;
-  if v_suggestion.category_id is null then
+  if v_suggestion.category_id is null and v_suggestion.suggested_category_name is null then
     raise exception 'Sugestão sem categoria — não é possível aprovar.';
+  end if;
+
+  -- Categoria: usa a existente, ou cria a nova sugerida junto (evitando
+  -- duplicidade por slug, igual serviço/bairro).
+  v_category_id := v_suggestion.category_id;
+  if v_category_id is null then
+    v_cat_slug := regexp_replace(lower(unaccent(v_suggestion.suggested_category_name)), '[^a-z0-9]+', '-', 'g');
+    v_cat_slug := trim(both '-' from v_cat_slug);
+
+    select id into v_category_id from public.categories where slug = v_cat_slug;
+    if v_category_id is null then
+      insert into public.categories (name, slug)
+      values (v_suggestion.suggested_category_name, v_cat_slug)
+      returning id into v_category_id;
+    end if;
   end if;
 
   v_slug := regexp_replace(lower(unaccent(v_suggestion.name)), '[^a-z0-9]+', '-', 'g');
@@ -844,7 +867,7 @@ begin
 
   if v_service_id is null then
     insert into public.services (category_id, name, slug)
-    values (v_suggestion.category_id, v_suggestion.name, v_slug)
+    values (v_category_id, v_suggestion.name, v_slug)
     returning id into v_service_id;
   end if;
 

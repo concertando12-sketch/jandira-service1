@@ -198,6 +198,7 @@ export interface Database {
           id: string;
           name: string;
           category_id: string | null;
+          suggested_category_name: string | null;
           submitted_by: string | null;
           status: SuggestionStatus;
           created_service_id: string | null;

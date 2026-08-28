@@ -9,11 +9,13 @@ export function ServiceSuggestionRow({
   id,
   name,
   categoryName,
+  suggestedCategoryName,
   submittedByName,
 }: {
   id: string;
   name: string;
   categoryName: string | null;
+  suggestedCategoryName?: string | null;
   submittedByName: string | null;
 }) {
   const [pending, startTransition] = useTransition();
@@ -52,7 +54,11 @@ export function ServiceSuggestionRow({
       <div>
         <p className="text-sm font-medium text-foreground">{name}</p>
         <p className="text-xs text-muted">
-          {categoryName ? `Categoria sugerida: ${categoryName}` : "Sem categoria"}
+          {categoryName
+            ? `Categoria: ${categoryName}`
+            : suggestedCategoryName
+              ? `Categoria nova sugerida: ${suggestedCategoryName}`
+              : "Sem categoria"}
           {submittedByName ? ` — sugerido por ${submittedByName}` : ""}
         </p>
         {feedback && <p className="text-xs text-danger">{feedback}</p>}

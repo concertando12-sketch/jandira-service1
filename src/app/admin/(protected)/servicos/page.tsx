@@ -19,7 +19,7 @@ export default async function AdminServicosPage() {
     supabase.from("categories").select("id, name").eq("is_active", true).order("name"),
     supabase
       .from("service_suggestions")
-      .select("id, name, status, categories(name), users(name)")
+      .select("id, name, status, suggested_category_name, categories(name), users(name)")
       .eq("status", "PENDING")
       .order("created_at", { ascending: true }),
   ]);
@@ -43,6 +43,7 @@ export default async function AdminServicosPage() {
                 id={s.id}
                 name={s.name}
                 categoryName={s.categories?.name ?? null}
+                suggestedCategoryName={s.suggested_category_name}
                 submittedByName={s.users?.name ?? null}
               />
             ))}

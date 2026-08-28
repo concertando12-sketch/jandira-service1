@@ -165,13 +165,22 @@ export async function suggestServiceAction(formData: FormData): Promise<ActionRe
 
   const name = String(formData.get("name") ?? "").trim();
   const categoryId = String(formData.get("category_id") ?? "").trim();
+  const newCategoryName = String(formData.get("new_category_name") ?? "").trim();
   if (!name) return { ok: false, message: "Informe o nome do serviço." };
-  if (!categoryId) return { ok: false, message: "Escolha a categoria que mais se aproxima." };
+  if (!categoryId && !newCategoryName) {
+    return { ok: false, message: "Escolha uma categoria ou sugira uma nova." };
+  }
 
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("service_suggestions")
-    .insert({ name, category_id: categoryId, submitted_by: user.id });
+  const { error } = await supabase.from("service_suggestions").insert({
+    name,
+    category_id: categoryId || null,
+    // Só um dos dois é preenchido — a categoria nova também só vira
+    // oficial quando o admin aprovar a sugestão (ver
+    // approve_service_suggestion no schema.sql).
+    suggested_category_name: categoryId ? null : newCategoryName,
+    submitted_by: user.id,
+  });
 
   if (error) return { ok: false, message: error.message };
   return { ok: true, message: "Obrigado! Esse serviço foi enviado para análise." };
