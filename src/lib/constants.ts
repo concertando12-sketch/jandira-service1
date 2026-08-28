@@ -23,3 +23,9 @@ export const REQUEST_STATUS_LABELS = {
 } as const;
 
 export type RequestStatus = keyof typeof REQUEST_STATUS_LABELS;
+
+// Cookie do "modo prévia" (ver src/lib/preview.ts) — só existe enquanto
+// o Supabase não estiver configurado. Fica num arquivo sem dependências
+// de servidor porque o middleware precisa ler o nome sem importar
+// `next/headers`.
+export const PREVIEW_ROLE_COOKIE = "dev_preview_role";

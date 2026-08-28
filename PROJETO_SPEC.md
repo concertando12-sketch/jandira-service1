@@ -94,6 +94,28 @@ Este arquivo guarda as decisões tomadas na FASE 1 para o time (e para você) n�
   continua como stub da Fase 4/5; quando for construído, é só respeitar
   essa mesma regra (nunca renderizar `street`/`number`/`complement`).
 
+## Modo prévia (sem login real)
+
+Adicionado a pedido, pra dar pra olhar o sistema andando antes de conectar
+o Supabase de verdade:
+
+- `/preview` — escolhe "ver como Cliente/Prestador/Admin", grava um cookie
+  (`dev_preview_role`) e entra direto no dashboard daquele papel
+- `src/lib/preview.ts` + `src/lib/supabase/mock-client.ts`: com o Supabase
+  não configurado, `getCurrentUser()` devolve um usuário de mentira (lido
+  do cookie) e todo `.from()/.rpc()` do Supabase vira um mock que nunca
+  bate na rede — sempre resolve vazio (`data: null`), então as telas
+  renderizam com os estados vazios normais, sem travar numa URL falsa
+- **Isso só existe enquanto `isSupabaseConfigured` for falso** — a partir
+  do momento que `.env.local` tiver as chaves reais, `/preview` vira
+  redirect pro `/login` de verdade e tudo isso some sozinho. Não precisa
+  eu tirar esse código depois.
+- Achado e corrigido nesse processo: `DashboardShell` (Client Component)
+  recebia os ícones da lucide-react como referência de componente vinda
+  de um Server Component — isso quebra no React/Next atual ("Only plain
+  objects can be passed..."). Corrigido passando o ícone já renderizado
+  (`<Home />`) em vez do componente cru.
+
 ## Fases
 
 Ver spec completa enviada pelo cliente. Ordem de execução: Fase 1 → Fase 8, uma de

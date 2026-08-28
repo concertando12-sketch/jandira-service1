@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "./types";
 import { isSupabaseConfigured, supabaseAnonKey, supabaseUrl } from "./env";
-import type { UserRole } from "../constants";
+import { PREVIEW_ROLE_COOKIE, type UserRole } from "../constants";
 
 const ROLE_HOME: Record<UserRole, string> = {
   CLIENT: "/cliente/dashboard",
@@ -30,12 +30,22 @@ export async function updateSession(request: NextRequest) {
 
   if (!isSupabaseConfigured) {
     // Sem credenciais ainda: deixa navegar livremente pelas telas
-    // públicas/estruturais, mas não finge autenticar em rotas
-    // protegidas — manda pro login com um aviso.
+    // públicas/estruturais. Rotas protegidas só respondem se tiver o
+    // cookie do modo prévia (escolhido em /preview) batendo com o role
+    // da área — senão manda escolher lá. Isso tudo some sozinho assim
+    // que .env.local tiver as chaves reais.
     if (isProtected) {
+      const match = PROTECTED_PREFIXES.find(({ prefix }) =>
+        request.nextUrl.pathname.startsWith(prefix),
+      );
+      const previewRole = request.cookies.get(PREVIEW_ROLE_COOKIE)?.value as UserRole | undefined;
+
+      if (previewRole && match && previewRole === match.role) {
+        return response;
+      }
+
       const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      url.searchParams.set("supabase", "not-configured");
+      url.pathname = "/preview";
       return NextResponse.redirect(url);
     }
     return response;

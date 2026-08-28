@@ -10,6 +10,14 @@ em bairros cadastrados no próprio banco (tabela `regions`, dado, não
 código), cruzando **serviço + bairro atendido** para o match entre
 cliente e prestador. Nada de raio/lat-lng/GPS no MVP.
 
+## Ver o sistema sem conectar o Supabase
+
+Abra [http://localhost:3000/preview](http://localhost:3000/preview) (ou clique em
+"Ver o sistema sem login" na home) e escolha um papel — cai direto no dashboard de
+Cliente, Prestador ou Admin, sem precisar de conta real. Os dados aparecem vazios (é
+esperado, ninguém cadastrou nada ainda). Some sozinho assim que você conectar o
+Supabase de verdade.
+
 ## Status
 
 **Fase 1** — autenticação, roles, estrutura ✅

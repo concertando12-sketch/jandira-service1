@@ -2,6 +2,7 @@ import Link from "next/link";
 import { MapPin } from "lucide-react";
 import { Logo, LogoMark } from "@/components/brand/logo";
 import { APP_CITY, APP_STATE } from "@/lib/constants";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export default function Home() {
   return (
@@ -76,6 +77,15 @@ export default function Home() {
             Entrar
           </Link>
         </p>
+
+        {!isSupabaseConfigured && (
+          <Link
+            href="/preview"
+            className="mt-3 text-xs text-muted underline decoration-dotted hover:text-brand"
+          >
+            🔧 Ver o sistema sem login (modo prévia)
+          </Link>
+        )}
       </main>
 
       <footer className="flex items-center justify-center gap-2 border-t border-border px-6 py-6 text-xs text-muted">

@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, LogOut, type LucideIcon } from "lucide-react";
+import { Menu, X, LogOut } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 import { signOutAction } from "@/lib/actions/auth-actions";
@@ -11,18 +11,24 @@ import { signOutAction } from "@/lib/actions/auth-actions";
 export interface NavItem {
   href: string;
   label: string;
-  icon: LucideIcon;
+  // Elemento já renderizado (ex: <Home className="..." />), não o
+  // componente em si — ícone de lucide-react é um objeto forwardRef,
+  // e Server Component não pode passar isso "cru" pra Client
+  // Component como prop (só elementos React já montados).
+  icon: ReactNode;
 }
 
 export function DashboardShell({
   navItems,
   roleLabel,
   userName,
+  previewMode = false,
   children,
 }: {
   navItems: NavItem[];
   roleLabel: string;
   userName: string;
+  previewMode?: boolean;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -32,7 +38,6 @@ export function DashboardShell({
     <nav className="flex flex-1 flex-col gap-1 px-3">
       {navItems.map((item) => {
         const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-        const Icon = item.icon;
         return (
           <Link
             key={item.href}
@@ -45,7 +50,7 @@ export function DashboardShell({
                 : "text-muted hover:bg-surface-2 hover:text-foreground",
             )}
           >
-            <Icon className="h-4.5 w-4.5" strokeWidth={2} />
+            {item.icon}
             {item.label}
           </Link>
         );
@@ -54,7 +59,16 @@ export function DashboardShell({
   );
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen flex-col bg-background">
+      {previewMode && (
+        <Link
+          href="/preview"
+          className="flex shrink-0 items-center justify-center gap-2 bg-brand px-4 py-1.5 text-center text-xs font-semibold text-brand-foreground"
+        >
+          🔧 Modo prévia — sem login real, dados vazios de propósito · trocar papel
+        </Link>
+      )}
+      <div className="flex min-h-0 flex-1 bg-background">
       {/* Sidebar — desktop */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-surface py-6 lg:flex">
         <Link href="/" className="mb-6 px-5">
@@ -116,6 +130,7 @@ export function DashboardShell({
         </header>
 
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-10">{children}</main>
+      </div>
       </div>
     </div>
   );

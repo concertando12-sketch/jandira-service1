@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label } from "@/components/ui/input";
@@ -10,8 +10,6 @@ import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export function LoginForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const notConfigured = searchParams.get("supabase") === "not-configured";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -49,10 +47,13 @@ export function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      {notConfigured && (
+      {!isSupabaseConfigured && (
         <p className="rounded-lg border border-brand/30 bg-brand/10 px-3 py-2 text-xs text-brand">
-          O projeto Supabase ainda não foi conectado. As telas já funcionam, mas login
-          real só depois de configurar o `.env.local` (veja o README).
+          O projeto Supabase ainda não foi conectado, então não tem login real ainda. Quer só{" "}
+          <Link href="/preview" className="font-semibold underline">
+            olhar as telas no modo prévia
+          </Link>
+          ?
         </p>
       )}
 
