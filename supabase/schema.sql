@@ -83,22 +83,10 @@ create table if not exists public.regions (
 
 create index if not exists idx_regions_city on public.regions(city_id);
 
--- Bairros sugeridos por clientes/prestadores quando não encontram o
--- deles na lista (item 11/12). NUNCA viram bairro oficial sozinhos —
--- um admin precisa aprovar (aí sim uma linha em `regions` é criada).
-create table if not exists public.region_suggestions (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  city_id uuid references public.cities(id),
-  submitted_by uuid references public.users(id) on delete set null,
-  status suggestion_status not null default 'PENDING',
-  created_region_id uuid references public.regions(id),
-  created_at timestamptz not null default now(),
-  reviewed_at timestamptz
-);
-
 -- ---------------------------------------------------------------------
 -- USUÁRIOS (espelha auth.users; role controla o app inteiro)
+-- Precisa vir antes de region_suggestions/service_suggestions — as duas
+-- referenciam public.users(id) em submitted_by.
 -- ---------------------------------------------------------------------
 create table if not exists public.users (
   id uuid primary key references auth.users(id) on delete cascade,
@@ -113,6 +101,20 @@ create table if not exists public.users (
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+);
+
+-- Bairros sugeridos por clientes/prestadores quando não encontram o
+-- deles na lista (item 11/12). NUNCA viram bairro oficial sozinhos —
+-- um admin precisa aprovar (aí sim uma linha em `regions` é criada).
+create table if not exists public.region_suggestions (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  city_id uuid references public.cities(id),
+  submitted_by uuid references public.users(id) on delete set null,
+  status suggestion_status not null default 'PENDING',
+  created_region_id uuid references public.regions(id),
+  created_at timestamptz not null default now(),
+  reviewed_at timestamptz
 );
 
 -- ---------------------------------------------------------------------
