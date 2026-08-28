@@ -3,9 +3,9 @@ import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Card, Badge } from "@/components/ui/card";
-import { CreateNeighborhoodForm } from "@/components/admin/create-neighborhood-form";
-import { ActiveToggleButton } from "@/components/admin/active-toggle-button";
-import { toggleNeighborhoodActiveAction } from "@/lib/actions/admin-actions";
+import { CreateRegionForm } from "@/components/admin/create-region-form";
+import { RegionRow } from "@/components/admin/region-row";
+import { RegionSuggestionRow } from "@/components/admin/region-suggestion-row";
 import { APP_CITY, APP_STATE } from "@/lib/constants";
 
 export default async function AdminRegioesPage() {
@@ -19,19 +19,26 @@ export default async function AdminRegioesPage() {
     .eq("state", APP_STATE)
     .maybeSingle();
 
-  const { data: neighborhoods } = city
-    ? await supabase
-        .from("neighborhoods")
-        .select("id, name, latitude, longitude, is_active")
-        .eq("city_id", city.id)
-        .order("name")
-    : { data: [] };
+  const [{ data: regions }, { data: suggestions }] = await Promise.all([
+    city
+      ? supabase
+          .from("regions")
+          .select("id, name, is_active")
+          .eq("city_id", city.id)
+          .order("name")
+      : Promise.resolve({ data: [] as { id: string; name: string; is_active: boolean }[] }),
+    supabase
+      .from("region_suggestions")
+      .select("id, name, status, users(name)")
+      .eq("status", "PENDING")
+      .order("created_at", { ascending: true }),
+  ]);
 
   return (
     <div>
       <PageHeader
         title="Regiões"
-        description="O MVP atende só uma cidade por vez — item mais importante da regra regional."
+        description="Bairros são dados, não código — cadastre aqui e eles aparecem na hora para clientes e prestadores."
       />
 
       <Card className="mb-6 flex items-center gap-3">
@@ -40,40 +47,37 @@ export default async function AdminRegioesPage() {
           <p className="font-semibold text-foreground">
             {city ? `${city.name} - ${city.state}` : `${APP_CITY} - ${APP_STATE} (não encontrada no banco)`}
           </p>
-          <p className="text-xs text-muted">
-            Cidade principal e única ativa. Outras cidades entram aqui no futuro, sem alterar código.
-          </p>
+          <p className="text-xs text-muted">Bairros cadastrados: {regions?.length ?? 0}</p>
         </div>
         <Badge variant="brand" className="ml-auto">
           Ativa
         </Badge>
       </Card>
 
+      {suggestions && suggestions.length > 0 && (
+        <div className="mb-6">
+          <p className="mb-3 text-sm font-semibold text-foreground">
+            Sugestões de bairro pendentes ({suggestions.length})
+          </p>
+          <div className="flex flex-col gap-2">
+            {suggestions.map((s) => (
+              <RegionSuggestionRow key={s.id} id={s.id} name={s.name} submittedByName={s.users?.name ?? null} />
+            ))}
+          </div>
+        </div>
+      )}
+
       {city && (
         <>
           <Card className="mb-6">
-            <p className="mb-3 text-sm font-semibold text-foreground">Bairros de {city.name}</p>
-            <CreateNeighborhoodForm cityId={city.id} />
+            <p className="mb-3 text-sm font-semibold text-foreground">+ Novo bairro</p>
+            <CreateRegionForm cityId={city.id} />
           </Card>
 
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {neighborhoods?.map((n) => (
-              <Card key={n.id} className="flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-sm font-medium text-foreground">{n.name}</p>
-                  <p className="text-xs text-muted">
-                    {n.latitude}, {n.longitude}
-                  </p>
-                </div>
-                <ActiveToggleButton
-                  id={n.id}
-                  isActive={n.is_active}
-                  onToggle={toggleNeighborhoodActiveAction}
-                />
-              </Card>
-            ))}
+          <div className="flex flex-col gap-2">
+            {regions?.map((r) => <RegionRow key={r.id} id={r.id} name={r.name} isActive={r.is_active} />)}
           </div>
-          {(!neighborhoods || neighborhoods.length === 0) && (
+          {(!regions || regions.length === 0) && (
             <Card className="py-8 text-center text-sm text-muted">
               Nenhum bairro cadastrado ainda. Rode supabase/seed.sql ou cadastre acima.
             </Card>

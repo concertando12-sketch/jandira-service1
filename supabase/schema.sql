@@ -1,5 +1,5 @@
 -- =====================================================================
--- JENDIRA SERVICE — SCHEMA (FASE 1)
+-- JENDIRA SERVICE — SCHEMA
 -- Marketplace regional de serviços — Jandira/SP
 --
 -- Como usar:
@@ -8,12 +8,17 @@
 --   3. Depois rode supabase/seed.sql (dados de referência: cidade,
 --      bairros, categorias, serviços)
 --
--- Não depende de nenhuma API externa (sem Google Maps). A localização é
--- resolvida cruzando os bairros cadastrados (lat/lng fixos) com a
--- fórmula de distância Haversine calculada aqui no próprio Postgres.
+-- MODELO DE REGIÃO (Parte 2 da spec): bairros são DADOS, não código.
+-- Um prestador "mora" em um bairro (region_id, opcional) mas "atende"
+-- uma lista de bairros (tabela provider_regions, N:N) — são coisas
+-- diferentes. O match cliente↔prestador é feito só cruzando
+-- serviço + bairro atendido, sem depender de raio/lat-lng nem de
+-- nenhuma API externa. Google Maps fica reservado para uma fase
+-- futura (colunas latitude/longitude existem mas são opcionais).
 -- =====================================================================
 
 create extension if not exists "pgcrypto";
+create extension if not exists "unaccent";
 
 -- ---------------------------------------------------------------------
 -- ENUMS
@@ -26,8 +31,14 @@ do $$ begin
   create type request_status as enum ('PENDING', 'ACCEPTED', 'DECLINED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED');
 exception when duplicate_object then null; end $$;
 
+do $$ begin
+  create type suggestion_status as enum ('PENDING', 'APPROVED', 'REJECTED');
+exception when duplicate_object then null; end $$;
+
 -- ---------------------------------------------------------------------
--- REGIÕES (cidades habilitadas + bairros com coordenadas fixas)
+-- CIDADES E REGIÕES (bairros)
+-- Estrutura cities → regions preparada para múltiplas cidades no
+-- futuro (item 27), mas só Jandira-SP fica ativa no MVP.
 -- ---------------------------------------------------------------------
 create table if not exists public.cities (
   id uuid primary key default gen_random_uuid(),
@@ -39,15 +50,35 @@ create table if not exists public.cities (
   unique (name, state, country)
 );
 
-create table if not exists public.neighborhoods (
+create table if not exists public.regions (
   id uuid primary key default gen_random_uuid(),
   city_id uuid not null references public.cities(id) on delete cascade,
   name text not null,
-  latitude numeric(9,6) not null,
-  longitude numeric(9,6) not null,
+  slug text not null,
+  -- Opcionais: só usados quando o Google Maps for integrado no futuro
+  -- (cálculo de raio real). O MVP funciona 100% sem preenchê-los.
+  latitude numeric(9,6),
+  longitude numeric(9,6),
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
-  unique (city_id, name)
+  updated_at timestamptz not null default now(),
+  unique (city_id, slug)
+);
+
+create index if not exists idx_regions_city on public.regions(city_id);
+
+-- Bairros sugeridos por clientes/prestadores quando não encontram o
+-- deles na lista (item 11/12). NUNCA viram bairro oficial sozinhos —
+-- um admin precisa aprovar (aí sim uma linha em `regions` é criada).
+create table if not exists public.region_suggestions (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  city_id uuid references public.cities(id),
+  submitted_by uuid references public.users(id) on delete set null,
+  status suggestion_status not null default 'PENDING',
+  created_region_id uuid references public.regions(id),
+  created_at timestamptz not null default now(),
+  reviewed_at timestamptz
 );
 
 -- ---------------------------------------------------------------------
@@ -89,6 +120,9 @@ create table if not exists public.services (
 
 -- ---------------------------------------------------------------------
 -- PERFIL DO PRESTADOR
+-- `region_id` = onde o prestador MORA (opcional, informativo).
+-- Onde ele ATENDE fica em provider_regions (N:N) — são coisas
+-- diferentes (item 26 da spec).
 -- ---------------------------------------------------------------------
 create table if not exists public.provider_profiles (
   id uuid primary key default gen_random_uuid(),
@@ -99,11 +133,14 @@ create table if not exists public.provider_profiles (
   whatsapp text,
   profile_photo text,
   city_id uuid references public.cities(id),
-  neighborhood_id uuid references public.neighborhoods(id),
+  region_id uuid references public.regions(id),
   address text,
   latitude numeric(9,6),
   longitude numeric(9,6),
-  service_radius_km numeric(5,2) not null default 5,
+  -- Reservado para quando o Google Maps entrar (raio real por
+  -- lat/lng). Não usado no motor de busca do MVP — hoje quem define
+  -- a cobertura é a lista de bairros em provider_regions.
+  service_radius_km numeric(5,2),
   price_from numeric(10,2),
   price_to numeric(10,2),
   availability text,
@@ -117,7 +154,7 @@ create table if not exists public.provider_profiles (
 );
 
 create index if not exists idx_provider_profiles_active on public.provider_profiles(is_active);
-create index if not exists idx_provider_profiles_neighborhood on public.provider_profiles(neighborhood_id);
+create index if not exists idx_provider_profiles_region on public.provider_profiles(region_id);
 
 create table if not exists public.provider_services (
   id uuid primary key default gen_random_uuid(),
@@ -126,6 +163,18 @@ create table if not exists public.provider_services (
   created_at timestamptz not null default now(),
   unique (provider_id, service_id)
 );
+
+-- Bairros que o prestador ATENDE (N:N — item 6/7/22 da spec). Um
+-- prestador pode atender vários bairros mesmo morando em só um.
+create table if not exists public.provider_regions (
+  id uuid primary key default gen_random_uuid(),
+  provider_id uuid not null references public.provider_profiles(id) on delete cascade,
+  region_id uuid not null references public.regions(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (provider_id, region_id)
+);
+
+create index if not exists idx_provider_regions_region on public.provider_regions(region_id);
 
 -- ---------------------------------------------------------------------
 -- SOLICITAÇÕES DE SERVIÇO
@@ -137,7 +186,7 @@ create table if not exists public.service_requests (
   service_id uuid not null references public.services(id),
   description text,
   address text,
-  neighborhood_id uuid references public.neighborhoods(id),
+  region_id uuid references public.regions(id),
   city text,
   latitude numeric(9,6),
   longitude numeric(9,6),
@@ -191,6 +240,8 @@ as $$
 $$;
 
 -- Distância em km entre duas coordenadas (fórmula Haversine).
+-- Reservado para a fase futura com Google Maps (raio real) — o motor
+-- de busca do MVP (search_providers) não usa isso hoje.
 create or replace function public.haversine_km(lat1 numeric, lon1 numeric, lat2 numeric, lon2 numeric)
 returns numeric
 language sql
@@ -301,13 +352,19 @@ create trigger trg_touch_service_requests
   before update on public.service_requests
   for each row execute function public.touch_updated_at();
 
+drop trigger if exists trg_touch_regions on public.regions;
+create trigger trg_touch_regions
+  before update on public.regions
+  for each row execute function public.touch_updated_at();
+
 -- ---------------------------------------------------------------------
--- MOTOR DE BUSCA / MATCH (regras 5, 6, 16, 17, 32 da spec)
--- Nunca retorna prestador fora da cidade do bairro pesquisado nem fora
--- do raio de atendimento dele. Ordena: mesmo bairro > melhor avaliação
--- > menor distância.
+-- MOTOR DE BUSCA / MATCH (Parte 2 — sem raio, sem Google Maps)
+-- Encontra prestadores ativos que oferecem o serviço E que marcaram o
+-- bairro pesquisado como atendido (provider_regions), sempre dentro da
+-- mesma cidade do bairro. Ordem (item 10): verificado > avaliação >
+-- perfil completo.
 -- ---------------------------------------------------------------------
-create or replace function public.search_providers(p_service_slug text, p_neighborhood_id uuid)
+create or replace function public.search_providers(p_service_slug text, p_region_id uuid)
 returns table (
   provider_id uuid,
   professional_name text,
@@ -318,10 +375,8 @@ returns table (
   rating_avg numeric,
   rating_count int,
   is_verified boolean,
-  neighborhood_name text,
-  service_radius_km numeric,
-  distance_km numeric,
-  same_neighborhood boolean
+  profile_completion int,
+  home_region_name text
 )
 language sql
 stable
@@ -338,45 +393,119 @@ as $$
     pp.rating_avg,
     pp.rating_count,
     pp.is_verified,
-    n.name,
-    pp.service_radius_km,
-    public.haversine_km(pp.latitude, pp.longitude, target.latitude, target.longitude) as distance_km,
-    (pp.neighborhood_id = p_neighborhood_id) as same_neighborhood
+    pp.profile_completion,
+    hr.name
   from public.provider_profiles pp
   join public.provider_services ps on ps.provider_id = pp.id
   join public.services s on s.id = ps.service_id and s.slug = p_service_slug and s.is_active
-  join public.neighborhoods n on n.id = pp.neighborhood_id
-  join public.neighborhoods target on target.id = p_neighborhood_id
+  join public.provider_regions pr on pr.provider_id = pp.id and pr.region_id = p_region_id
+  left join public.regions hr on hr.id = pp.region_id
   where pp.is_active = true
-    and n.city_id = target.city_id
-    and public.haversine_km(pp.latitude, pp.longitude, target.latitude, target.longitude) <= pp.service_radius_km
-  order by same_neighborhood desc, pp.rating_avg desc nulls last, distance_km asc nulls last;
+  order by pp.is_verified desc, pp.rating_avg desc nulls last, pp.profile_completion desc;
+$$;
+
+-- Aprova uma sugestão de bairro: cria a região oficial (evitando
+-- duplicidade por slug) e marca a sugestão como aprovada, tudo numa
+-- transação só. Só admin pode chamar (checado dentro da função).
+create or replace function public.approve_region_suggestion(p_suggestion_id uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_suggestion public.region_suggestions%rowtype;
+  v_slug text;
+  v_region_id uuid;
+begin
+  if not public.is_admin() then
+    raise exception 'Apenas administradores podem aprovar bairros.';
+  end if;
+
+  select * into v_suggestion from public.region_suggestions where id = p_suggestion_id;
+  if v_suggestion is null then
+    raise exception 'Sugestão não encontrada.';
+  end if;
+  if v_suggestion.status <> 'PENDING' then
+    raise exception 'Essa sugestão já foi analisada.';
+  end if;
+
+  v_slug := regexp_replace(lower(unaccent(v_suggestion.name)), '[^a-z0-9]+', '-', 'g');
+  v_slug := trim(both '-' from v_slug);
+
+  select id into v_region_id
+  from public.regions
+  where city_id = v_suggestion.city_id and slug = v_slug;
+
+  if v_region_id is null then
+    insert into public.regions (city_id, name, slug)
+    values (v_suggestion.city_id, v_suggestion.name, v_slug)
+    returning id into v_region_id;
+  end if;
+
+  update public.region_suggestions
+    set status = 'APPROVED', created_region_id = v_region_id, reviewed_at = now()
+    where id = p_suggestion_id;
+
+  return v_region_id;
+end;
+$$;
+
+create or replace function public.reject_region_suggestion(p_suggestion_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Apenas administradores podem rejeitar bairros.';
+  end if;
+
+  update public.region_suggestions
+    set status = 'REJECTED', reviewed_at = now()
+    where id = p_suggestion_id and status = 'PENDING';
+end;
 $$;
 
 -- =====================================================================
 -- ROW LEVEL SECURITY
 -- =====================================================================
 alter table public.cities enable row level security;
-alter table public.neighborhoods enable row level security;
+alter table public.regions enable row level security;
+alter table public.region_suggestions enable row level security;
 alter table public.users enable row level security;
 alter table public.categories enable row level security;
 alter table public.services enable row level security;
 alter table public.provider_profiles enable row level security;
 alter table public.provider_services enable row level security;
+alter table public.provider_regions enable row level security;
 alter table public.service_requests enable row level security;
 alter table public.reviews enable row level security;
 alter table public.favorites enable row level security;
 
--- cities / neighborhoods: leitura pública dos ativos, escrita só admin.
+-- cities / regions: leitura pública dos ativos, escrita só admin.
 drop policy if exists "cities_select" on public.cities;
 create policy "cities_select" on public.cities for select using (is_active or public.is_admin());
 drop policy if exists "cities_admin_write" on public.cities;
 create policy "cities_admin_write" on public.cities for all using (public.is_admin()) with check (public.is_admin());
 
-drop policy if exists "neighborhoods_select" on public.neighborhoods;
-create policy "neighborhoods_select" on public.neighborhoods for select using (is_active or public.is_admin());
-drop policy if exists "neighborhoods_admin_write" on public.neighborhoods;
-create policy "neighborhoods_admin_write" on public.neighborhoods for all using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "regions_select" on public.regions;
+create policy "regions_select" on public.regions for select using (is_active or public.is_admin());
+drop policy if exists "regions_admin_write" on public.regions;
+create policy "regions_admin_write" on public.regions for all using (public.is_admin()) with check (public.is_admin());
+
+-- region_suggestions: qualquer usuário logado pode sugerir e ver as
+-- próprias sugestões; só admin vê/mexe em tudo.
+drop policy if exists "region_suggestions_select" on public.region_suggestions;
+create policy "region_suggestions_select" on public.region_suggestions for select
+  using (submitted_by = auth.uid() or public.is_admin());
+drop policy if exists "region_suggestions_insert" on public.region_suggestions;
+create policy "region_suggestions_insert" on public.region_suggestions for insert
+  with check (submitted_by = auth.uid());
+drop policy if exists "region_suggestions_admin_update" on public.region_suggestions;
+create policy "region_suggestions_admin_update" on public.region_suggestions for update
+  using (public.is_admin());
 
 -- users: cada um vê/edita a si mesmo; admin vê/edita todos.
 drop policy if exists "users_select_own_or_admin" on public.users;
@@ -432,6 +561,27 @@ create policy "provider_services_write_own_or_admin" on public.provider_services
     or public.is_admin()
   );
 
+-- provider_regions: mesmo padrão de provider_services.
+drop policy if exists "provider_regions_select" on public.provider_regions;
+create policy "provider_regions_select" on public.provider_regions for select
+  using (
+    exists (
+      select 1 from public.provider_profiles pp
+      where pp.id = provider_regions.provider_id
+        and (pp.is_active or pp.user_id = auth.uid() or public.is_admin())
+    )
+  );
+drop policy if exists "provider_regions_write_own_or_admin" on public.provider_regions;
+create policy "provider_regions_write_own_or_admin" on public.provider_regions for all
+  using (
+    exists (select 1 from public.provider_profiles pp where pp.id = provider_regions.provider_id and pp.user_id = auth.uid())
+    or public.is_admin()
+  )
+  with check (
+    exists (select 1 from public.provider_profiles pp where pp.id = provider_regions.provider_id and pp.user_id = auth.uid())
+    or public.is_admin()
+  );
+
 -- service_requests: só cliente dono, prestador dono e admin enxergam/mexem.
 drop policy if exists "service_requests_select" on public.service_requests;
 create policy "service_requests_select" on public.service_requests for select
@@ -476,3 +626,13 @@ drop policy if exists "favorites_all_own" on public.favorites;
 create policy "favorites_all_own" on public.favorites for all
   using (client_id = auth.uid())
   with check (client_id = auth.uid());
+
+-- =====================================================================
+-- PERMISSÕES DAS FUNÇÕES RPC
+-- Garante explicitamente que a busca (pública) e as ações de aprovar/
+-- rejeitar bairro (protegidas por is_admin() dentro da própria função)
+-- são chamáveis via API — não depender do privilégio padrão do projeto.
+-- =====================================================================
+grant execute on function public.search_providers(text, uuid) to anon, authenticated;
+grant execute on function public.approve_region_suggestion(uuid) to authenticated;
+grant execute on function public.reject_region_suggestion(uuid) to authenticated;

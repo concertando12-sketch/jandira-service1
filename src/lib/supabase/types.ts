@@ -15,13 +15,7 @@ export type RequestStatus =
   | "COMPLETED"
   | "CANCELLED";
 
-type Relationship = {
-  foreignKeyName: string;
-  columns: string[];
-  isOneToOne?: boolean;
-  referencedRelation: string;
-  referencedColumns: string[];
-};
+export type SuggestionStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 export interface Database {
   public: {
@@ -57,24 +51,62 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["cities"]["Row"]>;
         Relationships: [];
       };
-      neighborhoods: {
+      regions: {
         Row: {
           id: string;
           city_id: string;
           name: string;
-          latitude: number;
-          longitude: number;
+          slug: string;
+          latitude: number | null;
+          longitude: number | null;
           is_active: boolean;
           created_at: string;
+          updated_at: string;
         };
-        Insert: Partial<Database["public"]["Tables"]["neighborhoods"]["Row"]>;
-        Update: Partial<Database["public"]["Tables"]["neighborhoods"]["Row"]>;
+        Insert: Partial<Database["public"]["Tables"]["regions"]["Row"]> & {
+          city_id: string;
+          name: string;
+          slug: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["regions"]["Row"]>;
         Relationships: [
           {
-            foreignKeyName: "neighborhoods_city_id_fkey";
+            foreignKeyName: "regions_city_id_fkey";
             columns: ["city_id"];
             isOneToOne: false;
             referencedRelation: "cities";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      region_suggestions: {
+        Row: {
+          id: string;
+          name: string;
+          city_id: string | null;
+          submitted_by: string | null;
+          status: SuggestionStatus;
+          created_region_id: string | null;
+          created_at: string;
+          reviewed_at: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["region_suggestions"]["Row"]> & {
+          name: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["region_suggestions"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "region_suggestions_city_id_fkey";
+            columns: ["city_id"];
+            isOneToOne: false;
+            referencedRelation: "cities";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "region_suggestions_submitted_by_fkey";
+            columns: ["submitted_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
             referencedColumns: ["id"];
           },
         ];
@@ -125,11 +157,11 @@ export interface Database {
           whatsapp: string | null;
           profile_photo: string | null;
           city_id: string | null;
-          neighborhood_id: string | null;
+          region_id: string | null;
           address: string | null;
           latitude: number | null;
           longitude: number | null;
-          service_radius_km: number;
+          service_radius_km: number | null;
           price_from: number | null;
           price_to: number | null;
           availability: string | null;
@@ -161,10 +193,10 @@ export interface Database {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "provider_profiles_neighborhood_id_fkey";
-            columns: ["neighborhood_id"];
+            foreignKeyName: "provider_profiles_region_id_fkey";
+            columns: ["region_id"];
             isOneToOne: false;
-            referencedRelation: "neighborhoods";
+            referencedRelation: "regions";
             referencedColumns: ["id"];
           },
         ];
@@ -198,6 +230,35 @@ export interface Database {
           },
         ];
       };
+      provider_regions: {
+        Row: {
+          id: string;
+          provider_id: string;
+          region_id: string;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["provider_regions"]["Row"]> & {
+          provider_id: string;
+          region_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["provider_regions"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "provider_regions_provider_id_fkey";
+            columns: ["provider_id"];
+            isOneToOne: false;
+            referencedRelation: "provider_profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "provider_regions_region_id_fkey";
+            columns: ["region_id"];
+            isOneToOne: false;
+            referencedRelation: "regions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       service_requests: {
         Row: {
           id: string;
@@ -206,7 +267,7 @@ export interface Database {
           service_id: string;
           description: string | null;
           address: string | null;
-          neighborhood_id: string | null;
+          region_id: string | null;
           city: string | null;
           latitude: number | null;
           longitude: number | null;
@@ -243,10 +304,10 @@ export interface Database {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "service_requests_neighborhood_id_fkey";
-            columns: ["neighborhood_id"];
+            foreignKeyName: "service_requests_region_id_fkey";
+            columns: ["region_id"];
             isOneToOne: false;
-            referencedRelation: "neighborhoods";
+            referencedRelation: "regions";
             referencedColumns: ["id"];
           },
         ];
@@ -325,7 +386,7 @@ export interface Database {
     Views: Record<string, never>;
     Functions: {
       search_providers: {
-        Args: { p_service_slug: string; p_neighborhood_id: string };
+        Args: { p_service_slug: string; p_region_id: string };
         Returns: {
           provider_id: string;
           professional_name: string;
@@ -336,10 +397,8 @@ export interface Database {
           rating_avg: number;
           rating_count: number;
           is_verified: boolean;
-          neighborhood_name: string;
-          service_radius_km: number;
-          distance_km: number | null;
-          same_neighborhood: boolean;
+          profile_completion: number;
+          home_region_name: string | null;
         }[];
       };
       is_admin: { Args: Record<string, never>; Returns: boolean };
@@ -347,10 +406,16 @@ export interface Database {
         Args: { lat1: number; lon1: number; lat2: number; lon2: number };
         Returns: number;
       };
+      approve_region_suggestion: {
+        Args: { p_suggestion_id: string };
+        Returns: string;
+      };
+      reject_region_suggestion: {
+        Args: { p_suggestion_id: string };
+        Returns: undefined;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };
 }
-
-export type Relationships = Relationship;

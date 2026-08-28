@@ -20,30 +20,36 @@ values ('Jandira', 'SP', 'BR', true)
 on conflict (name, state, country) do nothing;
 
 -- ---------------------------------------------------------------------
--- BAIRROS DE JANDIRA-SP
--- Coordenadas aproximadas (centro da cidade ~ -23.5272, -46.9042),
--- usadas só para o cálculo de raio/distância — sem API paga. Ajuste
--- fino pode ser feito no painel admin (Fase 7) a qualquer momento.
+-- BAIRROS DE JANDIRA-SP (tabela `regions` — item 4 da Parte 2)
+-- Lista inicial, NÃO definitiva — o admin pode corrigir nomes, ativar,
+-- desativar e adicionar novos bairros a qualquer momento pelo painel,
+-- sem precisar mexer neste arquivo nem no código (regra final da
+-- Parte 2: "bairros são dados, não código").
+--
+-- Latitude/longitude são opcionais e só usadas numa fase futura com
+-- Google Maps — o motor de busca do MVP não depende delas.
 -- ---------------------------------------------------------------------
-insert into public.neighborhoods (city_id, name, latitude, longitude, is_active)
-select c.id, n.name, n.latitude, n.longitude, true
+insert into public.regions (city_id, name, slug, latitude, longitude, is_active)
+select c.id, n.name, n.slug, n.latitude, n.longitude, true
 from public.cities c
 cross join (values
-  ('Centro',                    -23.5272, -46.9042),
-  ('Novo Horizonte',            -23.5190, -46.9010),
-  ('Jardim Silveira',           -23.5310, -46.9105),
-  ('Jardim Alvorada',           -23.5230, -46.9130),
-  ('Jardim Adriana',            -23.5340, -46.8990),
-  ('Vila São Luiz',             -23.5285, -46.8975),
-  ('Jardim Cristiane',          -23.5155, -46.9075),
-  ('Jardim Márcia',             -23.5205, -46.8950),
-  ('Jardim Santo Expedito',     -23.5355, -46.9060),
-  ('Parque Novo Horizonte',     -23.5175, -46.8985),
-  ('Chácara Silvânia',          -23.5250, -46.9180),
-  ('Jardim Estrela D''Alva',    -23.5320, -46.8930)
-) as n(name, latitude, longitude)
+  ('Centro',                    'centro',                     -23.5272, -46.9042),
+  ('Novo Horizonte',            'novo-horizonte',              -23.5190, -46.9010),
+  ('Jardim Silveira',           'jardim-silveira',             -23.5310, -46.9105),
+  ('Jardim Alvorada',           'jardim-alvorada',             -23.5230, -46.9130),
+  ('Jardim Adriana',            'jardim-adriana',               -23.5340, -46.8990),
+  ('Vila São Luiz',             'vila-sao-luiz',                -23.5285, -46.8975),
+  ('Vila Eunice',               'vila-eunice',                  -23.5165, -46.8940),
+  ('Jardim Cristiane',          'jardim-cristiane',             -23.5155, -46.9075),
+  ('Jardim Márcia',             'jardim-marcia',                -23.5205, -46.8950),
+  ('Jardim Santo Expedito',     'jardim-santo-expedito',        -23.5355, -46.9060),
+  ('Parque Novo Horizonte',     'parque-novo-horizonte',        -23.5175, -46.8985),
+  ('Chácara Silvânia',          'chacara-silvania',             -23.5250, -46.9180),
+  ('Jardim Estrela D''Alva',    'jardim-estrela-d-alva',        -23.5320, -46.8930),
+  ('Jardim Brotinho',           'jardim-brotinho',              -23.5225, -46.9200)
+) as n(name, slug, latitude, longitude)
 where c.name = 'Jandira' and c.state = 'SP'
-on conflict (city_id, name) do nothing;
+on conflict (city_id, slug) do nothing;
 
 -- ---------------------------------------------------------------------
 -- CATEGORIAS

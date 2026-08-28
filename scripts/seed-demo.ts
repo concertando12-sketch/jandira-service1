@@ -35,6 +35,10 @@ const admin = createClient(supabaseUrl, serviceRoleKey, {
 
 const DEMO_PASSWORD = "Demo123456!";
 
+// `homeRegion` = onde mora (informativo). `attends` = bairros que
+// atende de verdade (o que o motor de busca usa) — sempre inclui o
+// bairro onde mora + outros, pra mostrar a regra do item 9/26 (Maria
+// mora na Vila Eunice mas atende Centro e Novo Horizonte também).
 const DEMO_PROVIDERS = [
   {
     email: "ana.souza.demo@jendiraservice.com",
@@ -42,11 +46,11 @@ const DEMO_PROVIDERS = [
     phone: "(11) 90000-0001",
     professionalName: "Ana Souza",
     serviceSlug: "baba",
-    neighborhood: "Novo Horizonte",
+    homeRegion: "Novo Horizonte",
+    attends: ["Novo Horizonte", "Centro", "Parque Novo Horizonte"],
     description: "[DEMO] Babá com 8 anos de experiência, referências disponíveis.",
     priceFrom: 100,
     priceTo: 180,
-    radiusKm: 5,
     verified: true,
   },
   {
@@ -55,11 +59,11 @@ const DEMO_PROVIDERS = [
     phone: "(11) 90000-0002",
     professionalName: "Carlos Oliveira",
     serviceSlug: "eletricista",
-    neighborhood: "Centro",
+    homeRegion: "Centro",
+    attends: ["Centro", "Vila São Luiz", "Jardim Adriana", "Jardim Santo Expedito"],
     description: "[DEMO] Eletricista predial e residencial, atendimento rápido.",
     priceFrom: 80,
     priceTo: 250,
-    radiusKm: 8,
     verified: true,
   },
   {
@@ -68,11 +72,11 @@ const DEMO_PROVIDERS = [
     phone: "(11) 90000-0003",
     professionalName: "Maria Santos",
     serviceSlug: "diarista",
-    neighborhood: "Jardim Silveira",
+    homeRegion: "Vila Eunice",
+    attends: ["Vila Eunice", "Centro", "Novo Horizonte", "Jardim Silveira"],
     description: "[DEMO] Diarista de confiança, disponibilidade em dias úteis.",
     priceFrom: 120,
     priceTo: 150,
-    radiusKm: 6,
     verified: false,
   },
   {
@@ -81,11 +85,11 @@ const DEMO_PROVIDERS = [
     phone: "(11) 90000-0004",
     professionalName: "João Pereira",
     serviceSlug: "encanador",
-    neighborhood: "Jardim Alvorada",
+    homeRegion: "Jardim Alvorada",
+    attends: ["Jardim Alvorada", "Chácara Silvânia", "Jardim Brotinho"],
     description: "[DEMO] Encanador, conserto de vazamentos e instalações hidráulicas.",
     priceFrom: 90,
     priceTo: 200,
-    radiusKm: 7,
     verified: true,
   },
 ];
@@ -139,6 +143,12 @@ async function main() {
     );
   }
 
+  const { data: allRegions } = await admin
+    .from("regions")
+    .select("id, name")
+    .eq("city_id", city.id);
+  const regionByName = new Map((allRegions ?? []).map((r) => [r.name, r.id]));
+
   console.log("Cliente demo:");
   await ensureAuthUser({ ...DEMO_CLIENT, role: "CLIENT" });
 
@@ -151,17 +161,9 @@ async function main() {
       role: "PROVIDER",
     });
 
-    const { data: neighborhood } = await admin
-      .from("neighborhoods")
-      .select("id, latitude, longitude")
-      .eq("city_id", city.id)
-      .eq("name", provider.neighborhood)
-      .single();
-
-    if (!neighborhood) {
-      console.warn(
-        `  ! bairro "${provider.neighborhood}" não encontrado — pulando perfil de ${provider.name}`,
-      );
+    const homeRegionId = regionByName.get(provider.homeRegion) ?? null;
+    if (!homeRegionId) {
+      console.warn(`  ! bairro "${provider.homeRegion}" não encontrado — pulando ${provider.name}`);
       continue;
     }
 
@@ -186,10 +188,7 @@ async function main() {
           phone: provider.phone,
           whatsapp: provider.phone,
           city_id: city.id,
-          neighborhood_id: neighborhood.id,
-          latitude: neighborhood.latitude,
-          longitude: neighborhood.longitude,
-          service_radius_km: provider.radiusKm,
+          region_id: homeRegionId,
           price_from: provider.priceFrom,
           price_to: provider.priceTo,
           is_active: true,
@@ -213,7 +212,20 @@ async function main() {
         { onConflict: "provider_id,service_id" },
       );
 
-    console.log(`  perfil publicado: ${provider.name} (${provider.serviceSlug} em ${provider.neighborhood})`);
+    const attendingRegionIds = provider.attends
+      .map((name) => regionByName.get(name))
+      .filter((id): id is string => Boolean(id));
+
+    await admin.from("provider_regions").delete().eq("provider_id", profile.id);
+    if (attendingRegionIds.length > 0) {
+      await admin
+        .from("provider_regions")
+        .insert(attendingRegionIds.map((regionId) => ({ provider_id: profile.id, region_id: regionId })));
+    }
+
+    console.log(
+      `  perfil publicado: ${provider.name} (${provider.serviceSlug}, mora em ${provider.homeRegion}, atende ${attendingRegionIds.length} bairro(s))`,
+    );
   }
 
   console.log(`\nPronto. Login de qualquer conta demo: senha "${DEMO_PASSWORD}".`);

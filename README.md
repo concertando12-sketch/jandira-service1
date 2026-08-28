@@ -5,20 +5,29 @@ precisam de um serviço a prestadores que atendem a região. Pensado para
 crescer para outras cidades depois, mas o MVP é 100% focado em Jandira.
 
 Stack: **Next.js (App Router) + TypeScript + Tailwind CSS + Supabase**
-(Auth, Postgres, Storage). Sem Google Maps por enquanto — a localização é
-resolvida cruzando bairros cadastrados no banco (lat/lng fixos) com a
-fórmula de distância Haversine, calculada no próprio Postgres.
+(Auth, Postgres, Storage). Sem Google Maps — a localização é 100% baseada
+em bairros cadastrados no próprio banco (tabela `regions`, dado, não
+código), cruzando **serviço + bairro atendido** para o match entre
+cliente e prestador. Nada de raio/lat-lng/GPS no MVP.
 
-## Status — Fase 1 (autenticação, roles, estrutura)
+## Status
 
-- ✅ Landing "Sou cliente / Sou prestador"
-- ✅ Cadastro, login, recuperar senha, redefinir senha
-- ✅ Roles `CLIENT` / `PROVIDER` / `ADMIN` com rotas protegidas (middleware + RLS)
-- ✅ Dashboards iniciais dos três perfis, com dados reais do Supabase
-- ✅ Painel admin: categorias, serviços (profissões) e bairros 100% cadastráveis
-  sem mexer em código
-- ✅ Schema completo do banco + RLS + motor de busca por região (`search_providers`)
-- ⏳ Busca por bairro, mapa, solicitação de serviço, avaliações → próximas fases
+**Fase 1** — autenticação, roles, estrutura ✅
+- Landing "Sou cliente / Sou prestador", cadastro, login, recuperar/redefinir senha
+- Roles `CLIENT` / `PROVIDER` / `ADMIN` com rotas protegidas (proxy + RLS)
+- Dashboards iniciais dos três perfis, com dados reais do Supabase
+
+**Parte 2 — Sistema de regiões e bairros** ✅
+- Bairros (`regions`) 100% cadastráveis pelo admin — criar, editar, ativar/desativar
+- Prestador escolhe **quantos bairros quiser** que atende (`/prestador/regiao`),
+  separado de onde mora — N:N (`provider_regions`)
+- Cliente busca por serviço + bairro (`/cliente/buscar`), motor de busca
+  100% no banco (`search_providers`, sem API externa)
+- "Não encontrei meu bairro" → sugestão fica pendente até um admin aprovar
+  (`region_suggestions` + moderação em Admin → Regiões)
+- Painel admin: categorias, serviços e bairros 100% cadastráveis sem mexer em código
+
+- ⏳ Endereço completo, solicitação de serviço, avaliações → próximas fases
   (ver `PROJETO_SPEC.md`)
 
 ## 1. Configurar o Supabase

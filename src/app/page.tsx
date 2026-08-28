@@ -1,49 +1,87 @@
 import Link from "next/link";
-import { Logo } from "@/components/brand/logo";
-import { LinkButton } from "@/components/ui/button";
+import { MapPin } from "lucide-react";
+import { Logo, LogoMark } from "@/components/brand/logo";
 import { APP_CITY, APP_STATE } from "@/lib/constants";
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-background px-6 py-16">
-      <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-muted">
-        <span className="h-1.5 w-1.5 rounded-full bg-brand" />
-        Disponível em {APP_CITY} - {APP_STATE}
-      </div>
+    <div className="flex min-h-screen flex-col bg-background">
+      <header className="flex items-center justify-between border-b border-border px-6 py-4 sm:px-10">
+        <Link href="/">
+          <Logo subtitle={false} />
+        </Link>
+        <div className="flex items-center gap-4">
+          <span className="hidden items-center gap-1.5 text-sm text-muted sm:flex">
+            <MapPin className="h-4 w-4 text-brand" />
+            {APP_CITY} - {APP_STATE}
+          </span>
+          <Link
+            href="/login"
+            className="rounded-xl border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:border-brand/50"
+          >
+            Entrar
+          </Link>
+        </div>
+      </header>
 
-      <div className="mt-6 mb-12">
-        <Logo />
-      </div>
+      <main className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
+        <div className="mb-6 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-muted">
+          <span className="h-1.5 w-1.5 rounded-full bg-brand" />
+          Disponível em {APP_CITY} - {APP_STATE}
+        </div>
 
-      <div className="w-full max-w-sm text-center">
-        <h1 className="text-2xl font-bold text-foreground">
-          Como você deseja usar o app?
+        <h1 className="max-w-2xl text-3xl font-bold leading-tight text-foreground sm:text-4xl">
+          Encontre profissionais de confiança perto de você
         </h1>
-        <p className="mt-2 text-sm text-muted">
-          Conectamos clientes e prestadores de serviço em {APP_CITY}.
+        <p className="mt-4 max-w-xl text-sm text-muted sm:text-base">
+          Babá, eletricista, diarista, encanador e muito mais — profissionais que atendem
+          sua região em {APP_CITY} - {APP_STATE}.
         </p>
 
-        <div className="mt-8 flex flex-col gap-3">
-          <LinkButton href="/cadastro?role=CLIENT" size="lg" className="w-full">
-            Sou cliente — quero contratar
-          </LinkButton>
-          <LinkButton
-            href="/cadastro?role=PROVIDER"
-            size="lg"
-            variant="secondary"
-            className="w-full"
+        <p className="mt-12 text-xs font-semibold uppercase tracking-wider text-muted">
+          Como você deseja usar o aplicativo?
+        </p>
+
+        <div className="mt-4 grid w-full max-w-xl grid-cols-1 gap-4 sm:grid-cols-2">
+          <Link
+            href="/cadastro?role=CLIENT"
+            className="group rounded-2xl border border-border bg-surface p-6 text-left transition-colors hover:border-brand"
           >
-            Sou prestador — quero oferecer serviços
-          </LinkButton>
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand/15 text-xl">
+              🙋
+            </div>
+            <p className="mt-4 font-semibold text-foreground group-hover:text-brand">
+              Sou cliente
+            </p>
+            <p className="mt-1 text-sm text-muted">Quero contratar um serviço</p>
+          </Link>
+
+          <Link
+            href="/cadastro?role=PROVIDER"
+            className="group rounded-2xl border border-border bg-surface p-6 text-left transition-colors hover:border-brand"
+          >
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand/15 text-xl">
+              🛠️
+            </div>
+            <p className="mt-4 font-semibold text-foreground group-hover:text-brand">
+              Sou prestador
+            </p>
+            <p className="mt-1 text-sm text-muted">Quero oferecer meus serviços</p>
+          </Link>
         </div>
 
         <p className="mt-8 text-sm text-muted">
-          Já tem conta?{" "}
+          Já tem uma conta?{" "}
           <Link href="/login" className="font-semibold text-brand hover:underline">
             Entrar
           </Link>
         </p>
-      </div>
-    </main>
+      </main>
+
+      <footer className="flex items-center justify-center gap-2 border-t border-border px-6 py-6 text-xs text-muted">
+        <LogoMark className="h-4 w-4" />
+        Jendira Service — Soluções que facilitam sua vida
+      </footer>
+    </div>
   );
 }

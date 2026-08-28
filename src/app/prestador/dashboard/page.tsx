@@ -18,9 +18,10 @@ export default async function PrestadorDashboardPage() {
 
   let newRequests = 0;
   let completedRequests = 0;
+  let regionsCount = 0;
 
   if (profile) {
-    const [{ count: newCount }, { count: completedCount }] = await Promise.all([
+    const [{ count: newCount }, { count: completedCount }, { count: regionCount }] = await Promise.all([
       supabase
         .from("service_requests")
         .select("id", { count: "exact", head: true })
@@ -31,9 +32,14 @@ export default async function PrestadorDashboardPage() {
         .select("id", { count: "exact", head: true })
         .eq("provider_id", profile.id)
         .eq("status", "COMPLETED"),
+      supabase
+        .from("provider_regions")
+        .select("id", { count: "exact", head: true })
+        .eq("provider_id", profile.id),
     ]);
     newRequests = newCount ?? 0;
     completedRequests = completedCount ?? 0;
+    regionsCount = regionCount ?? 0;
   }
 
   const firstName = user.name.split(" ")[0] || user.name;
@@ -43,19 +49,19 @@ export default async function PrestadorDashboardPage() {
       <h1 className="text-xl font-bold text-foreground sm:text-2xl">Olá, {firstName}! 👋</h1>
       <p className="mt-1 text-sm text-muted">Este é o resumo do seu negócio na Jendira Service.</p>
 
-      {!profile && (
+      {regionsCount === 0 && (
         <Card className="mt-6 flex flex-col items-start gap-3 border-brand/40 bg-brand/10 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <UserCircle2 className="h-8 w-8 text-brand" />
             <div>
-              <p className="font-semibold text-foreground">Crie seu perfil profissional</p>
+              <p className="font-semibold text-foreground">Defina onde você atende</p>
               <p className="text-sm text-muted">
-                Você ainda não publicou seu perfil — sem ele, clientes não conseguem te encontrar.
+                Sem bairros marcados, você não aparece em nenhuma busca de cliente.
               </p>
             </div>
           </div>
-          <LinkButton href="/prestador/perfil" size="sm">
-            Criar perfil
+          <LinkButton href="/prestador/regiao" size="sm">
+            Escolher bairros
           </LinkButton>
         </Card>
       )}
