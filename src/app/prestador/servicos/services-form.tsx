@@ -8,9 +8,11 @@ import { ServiceCheckboxList, type CategoryWithServices } from "@/components/pro
 export function ServicesForm({
   categories,
   defaultSelectedIds,
+  allCategories,
 }: {
   categories: CategoryWithServices[];
   defaultSelectedIds: string[];
+  allCategories: { id: string; name: string }[];
 }) {
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(null);
@@ -24,7 +26,7 @@ export function ServicesForm({
 
   return (
     <form action={handleSubmit} className="flex flex-col gap-6">
-      <ServiceCheckboxList categories={categories} defaultSelectedIds={defaultSelectedIds} />
+      <ServiceCheckboxList categories={categories} defaultSelectedIds={defaultSelectedIds} allCategories={allCategories} />
 
       {feedback && (
         <p className={`text-sm ${feedback.ok ? "text-success" : "text-danger"}`}>{feedback.message}</p>

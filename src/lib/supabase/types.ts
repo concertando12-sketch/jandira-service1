@@ -193,6 +193,38 @@ export interface Database {
           },
         ];
       };
+      service_suggestions: {
+        Row: {
+          id: string;
+          name: string;
+          category_id: string | null;
+          submitted_by: string | null;
+          status: SuggestionStatus;
+          created_service_id: string | null;
+          created_at: string;
+          reviewed_at: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["service_suggestions"]["Row"]> & {
+          name: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["service_suggestions"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "service_suggestions_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "service_suggestions_submitted_by_fkey";
+            columns: ["submitted_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       provider_profiles: {
         Row: {
           id: string;
@@ -591,6 +623,14 @@ export interface Database {
         Returns: string;
       };
       reject_region_suggestion: {
+        Args: { p_suggestion_id: string };
+        Returns: undefined;
+      };
+      approve_service_suggestion: {
+        Args: { p_suggestion_id: string };
+        Returns: string;
+      };
+      reject_service_suggestion: {
         Args: { p_suggestion_id: string };
         Returns: undefined;
       };

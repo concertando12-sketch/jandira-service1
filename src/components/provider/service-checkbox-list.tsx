@@ -1,5 +1,7 @@
 "use client";
 
+import { SuggestServiceForm } from "./suggest-service-form";
+
 export interface CategoryWithServices {
   id: string;
   name: string;
@@ -11,9 +13,11 @@ export interface CategoryWithServices {
 export function ServiceCheckboxList({
   categories,
   defaultSelectedIds,
+  allCategories,
 }: {
   categories: CategoryWithServices[];
   defaultSelectedIds: string[];
+  allCategories: { id: string; name: string }[];
 }) {
   return (
     <div className="flex flex-col gap-5">
@@ -39,6 +43,8 @@ export function ServiceCheckboxList({
           </div>
         </div>
       ))}
+
+      <SuggestServiceForm categories={allCategories} />
     </div>
   );
 }

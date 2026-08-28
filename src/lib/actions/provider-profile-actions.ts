@@ -154,3 +154,25 @@ export async function saveProviderServicesAction(formData: FormData): Promise<Ac
   revalidatePath("/cliente/buscar");
   return { ok: true, message: "Serviços salvos." };
 }
+
+// Sugestão de serviço/profissão (espelha suggestRegionAction) — quando
+// o prestador não encontra a profissão dele na lista. Nunca vira
+// serviço oficial sozinho: fica PENDING até um admin aprovar (ver
+// approveServiceSuggestionAction).
+export async function suggestServiceAction(formData: FormData): Promise<ActionResult> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, message: "Você precisa estar logado." };
+
+  const name = String(formData.get("name") ?? "").trim();
+  const categoryId = String(formData.get("category_id") ?? "").trim();
+  if (!name) return { ok: false, message: "Informe o nome do serviço." };
+  if (!categoryId) return { ok: false, message: "Escolha a categoria que mais se aproxima." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("service_suggestions")
+    .insert({ name, category_id: categoryId, submitted_by: user.id });
+
+  if (error) return { ok: false, message: error.message };
+  return { ok: true, message: "Obrigado! Esse serviço foi enviado para análise." };
+}

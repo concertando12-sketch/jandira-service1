@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Card } from "@/components/ui/card";
 import { ServicesForm } from "./services-form";
+import { SuggestServiceForm } from "@/components/provider/suggest-service-form";
 import type { CategoryWithServices } from "@/components/provider/service-checkbox-list";
 
 export default async function PrestadorServicosPage() {
@@ -27,6 +28,8 @@ export default async function PrestadorServicosPage() {
     selectedIds = (providerServices ?? []).map((ps) => ps.service_id);
   }
 
+  const allCategories = (categories ?? []).map((c) => ({ id: c.id, name: c.name }));
+
   const categoriesWithServices: CategoryWithServices[] = (categories ?? [])
     .map((c) => ({
       id: c.id,
@@ -43,12 +46,19 @@ export default async function PrestadorServicosPage() {
       />
       <Card>
         {categoriesWithServices.length > 0 ? (
-          <ServicesForm categories={categoriesWithServices} defaultSelectedIds={selectedIds} />
+          <ServicesForm
+            categories={categoriesWithServices}
+            defaultSelectedIds={selectedIds}
+            allCategories={allCategories}
+          />
         ) : (
-          <p className="py-8 text-center text-sm text-muted">
-            Nenhum serviço cadastrado ainda. Rode supabase/seed.sql ou peça pro admin
-            cadastrar em Admin → Serviços.
-          </p>
+          <div>
+            <p className="py-8 text-center text-sm text-muted">
+              Nenhum serviço cadastrado ainda. Rode supabase/seed.sql ou peça pro admin
+              cadastrar em Admin → Serviços.
+            </p>
+            {allCategories.length > 0 && <SuggestServiceForm categories={allCategories} />}
+          </div>
         )}
       </Card>
     </div>

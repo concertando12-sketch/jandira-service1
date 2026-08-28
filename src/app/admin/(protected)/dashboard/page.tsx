@@ -36,6 +36,7 @@ export default async function AdminDashboardPage() {
     { count: regionsCount },
     { count: pendingReportsCount },
     { count: pendingSuggestionsCount },
+    { count: pendingServiceSuggestionsCount },
   ] = await Promise.all([
     supabase.from("users").select("id", { count: "exact", head: true }).eq("role", "CLIENT"),
     supabase.from("users").select("id", { count: "exact", head: true }).eq("role", "PROVIDER"),
@@ -66,6 +67,10 @@ export default async function AdminDashboardPage() {
       .from("region_suggestions")
       .select("id", { count: "exact", head: true })
       .eq("status", "PENDING"),
+    supabase
+      .from("service_suggestions")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "PENDING"),
   ]);
 
   const alerts = [
@@ -79,6 +84,11 @@ export default async function AdminDashboardPage() {
       count: pendingSuggestionsCount ?? 0,
       label: "sugestões de bairro",
       href: "/admin/regioes",
+    },
+    {
+      count: pendingServiceSuggestionsCount ?? 0,
+      label: "sugestões de serviço",
+      href: "/admin/servicos",
     },
   ].filter((a) => a.count > 0);
 

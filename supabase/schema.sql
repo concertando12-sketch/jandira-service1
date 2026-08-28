@@ -160,6 +160,21 @@ create table if not exists public.services (
   created_at timestamptz not null default now()
 );
 
+-- Serviços/profissões sugeridos por prestadores quando não encontram o
+-- deles na lista (espelha region_suggestions). NUNCA vira serviço
+-- oficial sozinho — um admin precisa aprovar (aí sim uma linha em
+-- `services` é criada).
+create table if not exists public.service_suggestions (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  category_id uuid references public.categories(id),
+  submitted_by uuid references public.users(id) on delete set null,
+  status suggestion_status not null default 'PENDING',
+  created_service_id uuid references public.services(id),
+  created_at timestamptz not null default now(),
+  reviewed_at timestamptz
+);
+
 -- ---------------------------------------------------------------------
 -- PERFIL DO PRESTADOR
 -- Onde ele MORA fica em user_addresses (Fase 3.1, compartilhada com o
@@ -779,6 +794,74 @@ begin
 end;
 $$;
 
+-- Aprova uma sugestão de serviço/profissão: cria o serviço oficial
+-- (evitando duplicidade por slug) e marca a sugestão como aprovada,
+-- tudo numa transação só. Só admin pode chamar (checado dentro da
+-- função). Espelha approve_region_suggestion.
+create or replace function public.approve_service_suggestion(p_suggestion_id uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_suggestion public.service_suggestions%rowtype;
+  v_slug text;
+  v_service_id uuid;
+begin
+  if not public.is_admin() then
+    raise exception 'Apenas administradores podem aprovar serviços.';
+  end if;
+
+  select * into v_suggestion from public.service_suggestions where id = p_suggestion_id;
+  if v_suggestion is null then
+    raise exception 'Sugestão não encontrada.';
+  end if;
+  if v_suggestion.status <> 'PENDING' then
+    raise exception 'Essa sugestão já foi analisada.';
+  end if;
+  if v_suggestion.category_id is null then
+    raise exception 'Sugestão sem categoria — não é possível aprovar.';
+  end if;
+
+  v_slug := regexp_replace(lower(unaccent(v_suggestion.name)), '[^a-z0-9]+', '-', 'g');
+  v_slug := trim(both '-' from v_slug);
+
+  select id into v_service_id
+  from public.services
+  where slug = v_slug;
+
+  if v_service_id is null then
+    insert into public.services (category_id, name, slug)
+    values (v_suggestion.category_id, v_suggestion.name, v_slug)
+    returning id into v_service_id;
+  end if;
+
+  update public.service_suggestions
+    set status = 'APPROVED', created_service_id = v_service_id, reviewed_at = now()
+    where id = p_suggestion_id;
+
+  return v_service_id;
+end;
+$$;
+
+create or replace function public.reject_service_suggestion(p_suggestion_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Apenas administradores podem rejeitar serviços.';
+  end if;
+
+  update public.service_suggestions
+    set status = 'REJECTED', reviewed_at = now()
+    where id = p_suggestion_id and status = 'PENDING';
+end;
+$$;
+
 -- =====================================================================
 -- ROW LEVEL SECURITY
 -- =====================================================================
@@ -788,6 +871,7 @@ alter table public.region_suggestions enable row level security;
 alter table public.users enable row level security;
 alter table public.categories enable row level security;
 alter table public.services enable row level security;
+alter table public.service_suggestions enable row level security;
 alter table public.provider_profiles enable row level security;
 alter table public.provider_services enable row level security;
 alter table public.provider_regions enable row level security;
@@ -848,6 +932,18 @@ drop policy if exists "services_select" on public.services;
 create policy "services_select" on public.services for select using (is_active or public.is_admin());
 drop policy if exists "services_admin_write" on public.services;
 create policy "services_admin_write" on public.services for all using (public.is_admin()) with check (public.is_admin());
+
+-- service_suggestions: qualquer usuário logado pode sugerir e ver as
+-- próprias sugestões; só admin vê/mexe em tudo. Espelha region_suggestions.
+drop policy if exists "service_suggestions_select" on public.service_suggestions;
+create policy "service_suggestions_select" on public.service_suggestions for select
+  using (submitted_by = auth.uid() or public.is_admin());
+drop policy if exists "service_suggestions_insert" on public.service_suggestions;
+create policy "service_suggestions_insert" on public.service_suggestions for insert
+  with check (submitted_by = auth.uid());
+drop policy if exists "service_suggestions_admin_update" on public.service_suggestions;
+create policy "service_suggestions_admin_update" on public.service_suggestions for update
+  using (public.is_admin());
 
 -- provider_profiles: público só vê ativos E homologados (item 42);
 -- dono sempre vê o próprio (mesmo pendente); admin vê tudo.
@@ -1020,6 +1116,8 @@ grant execute on function public.search_providers(text, uuid, int, int) to anon,
 grant execute on function public.notify(uuid, text, text, text, uuid) to authenticated;
 grant execute on function public.approve_region_suggestion(uuid) to authenticated;
 grant execute on function public.reject_region_suggestion(uuid) to authenticated;
+grant execute on function public.approve_service_suggestion(uuid) to authenticated;
+grant execute on function public.reject_service_suggestion(uuid) to authenticated;
 
 -- =====================================================================
 -- STORAGE — foto de perfil do prestador (Fase 7)

@@ -87,9 +87,19 @@ Supabase de verdade.
 - `/prestador/servicos`: escolhe quais profissões oferece, do catálogo cadastrado
   pelo admin — sem isso o prestador não aparece em nenhuma busca
 - `/prestador/perfil`: foto (upload de verdade, Supabase Storage), descrição,
-  faixa de preço, disponibilidade, WhatsApp
+  faixa de preço, disponibilidade, WhatsApp — agora com resumo de endereço,
+  regiões atendidas e serviços oferecidos (cada um com link "Editar" pra tela
+  própria)
 - `profile_completion` deixou de ser um número fixo — é calculado a partir do que
   realmente foi preenchido
+- "Não achou seu serviço? Sugerir profissão" em `/prestador/servicos` — igual à
+  sugestão de bairro: fica pendente até um admin aprovar (`service_suggestions` +
+  moderação em Admin → Serviços, com alerta no dashboard)
+- Catálogo inicial ampliado (`supabase/seed.sql`): +10 profissões (Jardineiro,
+  Piscineiro, Cozinheiro por encomenda, Esteticista, Técnico de celular,
+  Organizador de eventos, Advogado independente, Contador autônomo, Enfermeiro
+  autônomo, Personal trainer) e 2 categorias novas (Serviços Profissionais,
+  Saúde e Bem-estar)
 
 - ⏳ Upload de documentos do prestador, testes ponta a ponta com Supabase real,
   responsividade/deploy → próximas fases (ver `PROJETO_SPEC.md`)

@@ -61,7 +61,9 @@ insert into public.categories (name, slug, icon, description, is_active) values
   ('Tecnologia',  'tecnologia',  'laptop',      'Tecnologia e serviços digitais', true),
   ('Eventos',     'eventos',     'party-popper','Serviços para eventos', true),
   ('Educação',    'educacao',    'graduation-cap', 'Aulas e reforço escolar', true),
-  ('Transporte',  'transporte',  'car',         'Transporte e veículos', true)
+  ('Transporte',  'transporte',  'car',         'Transporte e veículos', true),
+  ('Serviços Profissionais', 'servicos-profissionais', 'briefcase', 'Advocacia, contabilidade e afins', true),
+  ('Saúde e Bem-estar', 'saude-e-bem-estar', 'heart-pulse', 'Cuidados de saúde e bem-estar', true)
 on conflict (slug) do nothing;
 
 -- ---------------------------------------------------------------------
@@ -99,6 +101,16 @@ join (values
   ('educacao', 'Professor de idiomas',   'professor-de-idiomas',   'Aulas de idiomas'),
   ('educacao', 'Reforço escolar',        'reforco-escolar',        'Reforço escolar para alunos'),
   ('transporte', 'Motorista',     'motorista',           'Transporte particular'),
-  ('transporte', 'Mecânico',      'mecanico',            'Manutenção automotiva')
+  ('transporte', 'Mecânico',      'mecanico',            'Manutenção automotiva'),
+  ('casa', 'Jardineiro',          'jardineiro',          'Manutenção de jardins e áreas verdes'),
+  ('casa', 'Piscineiro',          'piscineiro',          'Limpeza e manutenção de piscinas'),
+  ('casa', 'Cozinheiro por encomenda', 'cozinheiro-por-encomenda', 'Refeições e marmitas sob encomenda'),
+  ('beleza', 'Esteticista',       'esteticista',         'Tratamentos estéticos e cuidados com a pele'),
+  ('tecnologia', 'Técnico de celular', 'tecnico-de-celular', 'Manutenção e conserto de celulares'),
+  ('eventos', 'Organizador de eventos', 'organizador-de-eventos', 'Planejamento e organização de festas e eventos'),
+  ('servicos-profissionais', 'Advogado independente', 'advogado-independente', 'Consultoria e serviços jurídicos autônomos'),
+  ('servicos-profissionais', 'Contador autônomo', 'contador-autonomo', 'Contabilidade para pessoa física e pequenos negócios'),
+  ('saude-e-bem-estar', 'Enfermeiro autônomo', 'enfermeiro-autonomo', 'Cuidados de enfermagem a domicílio'),
+  ('saude-e-bem-estar', 'Personal trainer', 'personal-trainer', 'Treinamento físico personalizado')
 ) as s(category_slug, name, slug, description) on c.slug = s.category_slug
 on conflict (slug) do nothing;

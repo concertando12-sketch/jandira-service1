@@ -280,6 +280,49 @@ como dizer quais profissões oferece, e o motor de busca (que cruza
   `/prestador/regiao` "publica" o prestador (decisão da Fase 3),
   mantendo essa regra única em vez de duplicá-la em mais um lugar.
 
+## Perfil do prestador — resumo + catálogo de serviços ampliado (pós-Fase 7)
+
+Dois pedidos do cliente, feitos juntos: (1) `/prestador/perfil` "parecia
+incompleto" sem mostrar endereço e regiões atendidas; (2) ativar de vez
+"meus serviços", com opção de sugerir profissão que não está na lista —
+igual ao que já existe pra bairro — e semear a primeira leva de 24/25
+profissões que o cliente listou.
+
+- **`ProfileSummaryCard`** (`src/components/provider/profile-summary-card.tsx`):
+  card de leitura com link "Editar" pra tela própria. Usado 3x em
+  `/prestador/perfil` (Endereço, Regiões que atendo, Serviços que
+  ofereço) — mantém a separação já decidida na Fase 3 (onde mora ≠ onde
+  atende ≠ perfil) sem duplicar formulário nenhum, só resolve a
+  sensação de "faltou alguma coisa aqui".
+- **`service_suggestions`**: mesma arquitetura de `region_suggestions`
+  (Parte 2, item 11/12) — tabela com `status PENDING/APPROVED/REJECTED`,
+  RPC `approve_service_suggestion`/`reject_service_suggestion`
+  (`security definer`, só admin, slugifica via `unaccent`, dedup por
+  slug), RLS (autor vê a própria, admin vê/mexe em tudo). Única
+  diferença do espelho: serviço sempre precisa de uma categoria
+  (`category_id`), então o formulário de sugestão pede isso também, e
+  aprovar sem categoria é bloqueado na própria função.
+- **Onde a sugestão aparece**: dentro de `ServiceCheckboxList`
+  (`/prestador/servicos`), do mesmo jeito que `SuggestRegionForm` já
+  vive dentro de `RegionCheckboxList` — inclusive herdando o mesmo
+  padrão de form aninhado dentro do form principal, já testado e em
+  produção desde a Parte 2. Moderação em Admin → Serviços, mesma UI de
+  `RegionSuggestionRow`, e um alerta a mais no dashboard admin
+  ("sugestões de serviço"), espelhando o de bairro.
+- **Catálogo inicial ampliado** (`supabase/seed.sql`): das 24/25
+  profissões que o cliente listou, 14-15 já existiam no catálogo sob o
+  mesmo nome ou nome equivalente (Babá, Cabeleireiro, Cuidador de
+  idosos → Cuidador, Diarista/Faxineira → já eram duas entradas
+  separadas, Eletricista, Encanador, Fotógrafo, Maquiador,
+  Manicure/Pedicure → Manicure, Marceneiro, Pedreiro, Pintor, Professor
+  particular, Técnico de informática, Montador de Móveis) — tratadas
+  como já cobertas, sem duplicar. As 10 realmente novas entraram:
+  Jardineiro e Piscineiro e Cozinheiro por encomenda (categoria Casa),
+  Esteticista (Beleza), Técnico de celular (Tecnologia), Organizador de
+  eventos (Eventos), Advogado independente e Contador autônomo (nova
+  categoria "Serviços Profissionais"), Enfermeiro autônomo e Personal
+  trainer (nova categoria "Saúde e Bem-estar").
+
 ## Fases
 
 Ver spec completa enviada pelo cliente. Ordem de execução: Fase 1 → Fase 8, uma de

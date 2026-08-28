@@ -90,6 +90,37 @@ export async function toggleServiceActiveAction(id: string, isActive: boolean) {
 }
 
 // ---------------------------------------------------------------------
+// Sugestões de serviço — prestador sugere, admin aprova (espelha
+// sugestões de bairro logo abaixo).
+// ---------------------------------------------------------------------
+export async function approveServiceSuggestionAction(id: string): Promise<ActionResult> {
+  try {
+    const supabase = await requireAdminClient();
+    const { error } = await supabase.rpc("approve_service_suggestion", { p_suggestion_id: id });
+    if (error) return { ok: false, message: error.message };
+    revalidatePath("/admin/servicos");
+    revalidatePath("/prestador/servicos");
+    revalidatePath("/cliente/categorias");
+    revalidatePath("/cliente/buscar");
+    return { ok: true, message: "Serviço aprovado e já disponível no app." };
+  } catch (e) {
+    return { ok: false, message: (e as Error).message };
+  }
+}
+
+export async function rejectServiceSuggestionAction(id: string): Promise<ActionResult> {
+  try {
+    const supabase = await requireAdminClient();
+    const { error } = await supabase.rpc("reject_service_suggestion", { p_suggestion_id: id });
+    if (error) return { ok: false, message: error.message };
+    revalidatePath("/admin/servicos");
+    return { ok: true, message: "Sugestão rejeitada." };
+  } catch (e) {
+    return { ok: false, message: (e as Error).message };
+  }
+}
+
+// ---------------------------------------------------------------------
 // Regiões (bairros) — Parte 2 da spec: são dados, não código.
 // Sem Google Maps: lat/lng são opcionais (reservados pro futuro).
 // ---------------------------------------------------------------------
