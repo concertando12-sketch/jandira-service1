@@ -47,6 +47,8 @@ const DEMO_PROVIDERS = [
     professionalName: "Ana Souza",
     serviceSlug: "baba",
     homeRegion: "Novo Horizonte",
+    street: "Rua das Acácias",
+    number: "45",
     attends: ["Novo Horizonte", "Centro", "Parque Novo Horizonte"],
     description: "[DEMO] Babá com 8 anos de experiência, referências disponíveis.",
     priceFrom: 100,
@@ -60,6 +62,8 @@ const DEMO_PROVIDERS = [
     professionalName: "Carlos Oliveira",
     serviceSlug: "eletricista",
     homeRegion: "Centro",
+    street: "Avenida Jandira",
+    number: "780",
     attends: ["Centro", "Vila São Luiz", "Jardim Adriana", "Jardim Santo Expedito"],
     description: "[DEMO] Eletricista predial e residencial, atendimento rápido.",
     priceFrom: 80,
@@ -73,6 +77,8 @@ const DEMO_PROVIDERS = [
     professionalName: "Maria Santos",
     serviceSlug: "diarista",
     homeRegion: "Vila Eunice",
+    street: "Rua Vila Eunice",
+    number: "12",
     attends: ["Vila Eunice", "Centro", "Novo Horizonte", "Jardim Silveira"],
     description: "[DEMO] Diarista de confiança, disponibilidade em dias úteis.",
     priceFrom: 120,
@@ -86,6 +92,8 @@ const DEMO_PROVIDERS = [
     professionalName: "João Pereira",
     serviceSlug: "encanador",
     homeRegion: "Jardim Alvorada",
+    street: "Rua Alvorada",
+    number: "231",
     attends: ["Jardim Alvorada", "Chácara Silvânia", "Jardim Brotinho"],
     description: "[DEMO] Encanador, conserto de vazamentos e instalações hidráulicas.",
     priceFrom: 90,
@@ -94,10 +102,16 @@ const DEMO_PROVIDERS = [
   },
 ];
 
+// Mesmo bairro da Ana Souza (Novo Horizonte) de propósito — pra dar pra
+// testar o teste principal da spec (item 49) direto: Cliente Teste
+// busca "Babá" e a Ana já aparece automaticamente pelo bairro salvo.
 const DEMO_CLIENT = {
   email: "cliente.teste.demo@jendiraservice.com",
   name: "Cliente Teste",
   phone: "(11) 90000-0000",
+  homeRegion: "Novo Horizonte",
+  street: "Rua Central",
+  number: "500",
 };
 
 async function ensureAuthUser(params: {
@@ -150,7 +164,21 @@ async function main() {
   const regionByName = new Map((allRegions ?? []).map((r) => [r.name, r.id]));
 
   console.log("Cliente demo:");
-  await ensureAuthUser({ ...DEMO_CLIENT, role: "CLIENT" });
+  const clientUserId = await ensureAuthUser({ ...DEMO_CLIENT, role: "CLIENT" });
+  const clientRegionId = regionByName.get(DEMO_CLIENT.homeRegion);
+  if (clientRegionId) {
+    await admin.from("user_addresses").upsert(
+      {
+        user_id: clientUserId,
+        city_id: city.id,
+        region_id: clientRegionId,
+        street: DEMO_CLIENT.street,
+        number: DEMO_CLIENT.number,
+        is_primary: true,
+      },
+      { onConflict: "user_id" },
+    );
+  }
 
   console.log("\nPrestadores demo:");
   for (const provider of DEMO_PROVIDERS) {
@@ -178,6 +206,18 @@ async function main() {
       continue;
     }
 
+    await admin.from("user_addresses").upsert(
+      {
+        user_id: userId,
+        city_id: city.id,
+        region_id: homeRegionId,
+        street: provider.street,
+        number: provider.number,
+        is_primary: true,
+      },
+      { onConflict: "user_id" },
+    );
+
     const { data: profile, error: profileError } = await admin
       .from("provider_profiles")
       .upsert(
@@ -187,8 +227,6 @@ async function main() {
           description: provider.description,
           phone: provider.phone,
           whatsapp: provider.phone,
-          city_id: city.id,
-          region_id: homeRegionId,
           price_from: provider.priceFrom,
           price_to: provider.priceTo,
           is_active: true,

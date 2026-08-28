@@ -32,10 +32,11 @@ export async function suggestRegionAction(formData: FormData): Promise<ActionRes
   return { ok: true, message: "Obrigado! Esse bairro foi enviado para análise." };
 }
 
-// Salva "onde o prestador mora" (region_id, opcional) e a lista de
-// bairros que ele ATENDE (provider_regions, N:N — item 6/7/26). Cria o
-// provider_profiles na hora se ele ainda não existir, já que a região
-// pode ser a primeira coisa que o prestador preenche.
+// Salva a lista de bairros que o prestador ATENDE (provider_regions,
+// N:N — item 6/7/22/26). Onde ele MORA é outra coisa, fica em
+// user_addresses (ver saveAddressAction, Fase 3.1). Cria o
+// provider_profiles na hora se ele ainda não existir, já que isso pode
+// ser a primeira coisa que o prestador preenche.
 export async function saveProviderRegionsAction(formData: FormData): Promise<ActionResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, message: "Você precisa estar logado." };
@@ -43,7 +44,6 @@ export async function saveProviderRegionsAction(formData: FormData): Promise<Act
     return { ok: false, message: "Apenas prestadores podem definir região de atendimento." };
   }
 
-  const homeRegionId = String(formData.get("home_region_id") ?? "") || null;
   const attendingIds = formData.getAll("region_ids").map(String).filter(Boolean);
 
   if (attendingIds.length === 0) {
@@ -51,13 +51,6 @@ export async function saveProviderRegionsAction(formData: FormData): Promise<Act
   }
 
   const supabase = await createClient();
-
-  const { data: city } = await supabase
-    .from("cities")
-    .select("id")
-    .eq("name", APP_CITY)
-    .eq("state", APP_STATE)
-    .maybeSingle();
 
   // Não mexe em professional_name/descrição/preço aqui — isso é do
   // perfil profissional (Fase 2). Essa ação só garante que a linha
@@ -67,12 +60,7 @@ export async function saveProviderRegionsAction(formData: FormData): Promise<Act
   const { data: profile, error: upsertError } = await supabase
     .from("provider_profiles")
     .upsert(
-      {
-        user_id: user.id,
-        city_id: city?.id ?? null,
-        region_id: homeRegionId,
-        is_active: true,
-      },
+      { user_id: user.id, is_active: true },
       { onConflict: "user_id", ignoreDuplicates: false },
     )
     .select("id")

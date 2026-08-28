@@ -1,4 +1,4 @@
-import { Home, Search, LayoutGrid, ClipboardList, Heart, User } from "lucide-react";
+import { Home, Search, LayoutGrid, ClipboardList, Heart, User, Building2 } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { requireRole } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/constants";
@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: "/cliente/categorias", label: "Categorias", icon: LayoutGrid },
   { href: "/cliente/solicitacoes", label: "Meus pedidos", icon: ClipboardList },
   { href: "/cliente/favoritos", label: "Favoritos", icon: Heart },
+  { href: "/cliente/endereco", label: "Meu endereço", icon: Building2 },
   { href: "/cliente/perfil", label: "Perfil", icon: User },
 ];
 

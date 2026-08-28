@@ -38,6 +38,47 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["users"]["Row"]>;
         Relationships: [];
       };
+      user_addresses: {
+        Row: {
+          id: string;
+          user_id: string;
+          city_id: string | null;
+          region_id: string | null;
+          street: string | null;
+          number: string | null;
+          complement: string | null;
+          is_primary: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["user_addresses"]["Row"]> & {
+          user_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["user_addresses"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "user_addresses_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_addresses_city_id_fkey";
+            columns: ["city_id"];
+            isOneToOne: false;
+            referencedRelation: "cities";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_addresses_region_id_fkey";
+            columns: ["region_id"];
+            isOneToOne: false;
+            referencedRelation: "regions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       cities: {
         Row: {
           id: string;
@@ -156,9 +197,6 @@ export interface Database {
           phone: string | null;
           whatsapp: string | null;
           profile_photo: string | null;
-          city_id: string | null;
-          region_id: string | null;
-          address: string | null;
           latitude: number | null;
           longitude: number | null;
           service_radius_km: number | null;
@@ -183,20 +221,6 @@ export interface Database {
             columns: ["user_id"];
             isOneToOne: true;
             referencedRelation: "users";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "provider_profiles_city_id_fkey";
-            columns: ["city_id"];
-            isOneToOne: false;
-            referencedRelation: "cities";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "provider_profiles_region_id_fkey";
-            columns: ["region_id"];
-            isOneToOne: false;
-            referencedRelation: "regions";
             referencedColumns: ["id"];
           },
         ];
@@ -266,9 +290,11 @@ export interface Database {
           provider_id: string;
           service_id: string;
           description: string | null;
-          address: string | null;
+          city_id: string | null;
           region_id: string | null;
-          city: string | null;
+          street: string | null;
+          number: string | null;
+          complement: string | null;
           latitude: number | null;
           longitude: number | null;
           status: RequestStatus;
@@ -301,6 +327,13 @@ export interface Database {
             columns: ["service_id"];
             isOneToOne: false;
             referencedRelation: "services";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "service_requests_city_id_fkey";
+            columns: ["city_id"];
+            isOneToOne: false;
+            referencedRelation: "cities";
             referencedColumns: ["id"];
           },
           {

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { Search, ShieldCheck, Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -19,17 +18,22 @@ type SearchResult = Database["public"]["Functions"]["search_providers"]["Returns
 export function BuscarForm({
   services,
   regions,
+  initialServiceSlug,
+  initialRegionId,
+  initialRegionName,
+  initialResults,
 }: {
   services: ServiceOption[];
   regions: RegionOption[];
+  initialServiceSlug: string;
+  initialRegionId: string | null;
+  initialRegionName: string | null;
+  initialResults: SearchResult[] | null;
 }) {
-  const searchParams = useSearchParams();
-  const initialSlug = searchParams.get("servico") ?? "";
-
-  const [serviceSlug, setServiceSlug] = useState(initialSlug);
-  const [regionId, setRegionId] = useState<string | null>(null);
-  const [regionName, setRegionName] = useState<string | null>(null);
-  const [results, setResults] = useState<SearchResult[] | null>(null);
+  const [serviceSlug, setServiceSlug] = useState(initialServiceSlug);
+  const [regionId, setRegionId] = useState<string | null>(initialRegionId);
+  const [regionName, setRegionName] = useState<string | null>(initialRegionName);
+  const [results, setResults] = useState<SearchResult[] | null>(initialResults);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,6 +70,15 @@ export function BuscarForm({
 
   return (
     <div>
+      {initialRegionName && (
+        <p className="mb-4 text-xs text-muted">
+          📍 Usando seu bairro salvo:{" "}
+          <Link href="/cliente/endereco" className="text-brand hover:underline">
+            {initialRegionName} (trocar)
+          </Link>
+        </p>
+      )}
+
       <form onSubmit={handleSearch} className="flex flex-col gap-4 sm:flex-row sm:items-end">
         <div className="flex-1">
           <Label htmlFor="service">O que você precisa?</Label>

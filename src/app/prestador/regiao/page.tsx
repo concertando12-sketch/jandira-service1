@@ -25,7 +25,7 @@ export default async function PrestadorRegiaoPage() {
           .eq("is_active", true)
           .order("name")
       : Promise.resolve({ data: [] as { id: string; name: string }[] }),
-    supabase.from("provider_profiles").select("id, region_id").eq("user_id", user.id).maybeSingle(),
+    supabase.from("provider_profiles").select("id").eq("user_id", user.id).maybeSingle(),
   ]);
 
   let attendingIds: string[] = [];
@@ -46,11 +46,7 @@ export default async function PrestadorRegiaoPage() {
 
       <Card className="max-w-xl">
         {regions && regions.length > 0 ? (
-          <ProviderRegionForm
-            regions={regions}
-            defaultHomeRegionId={profile?.region_id ?? null}
-            defaultAttendingIds={attendingIds}
-          />
+          <ProviderRegionForm regions={regions} defaultAttendingIds={attendingIds} />
         ) : (
           <p className="py-8 text-center text-sm text-muted">
             Nenhum bairro cadastrado ainda em {APP_CITY}. Rode supabase/seed.sql ou peça pro

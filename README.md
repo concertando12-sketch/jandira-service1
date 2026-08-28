@@ -27,7 +27,19 @@ cliente e prestador. Nada de raio/lat-lng/GPS no MVP.
   (`region_suggestions` + moderação em Admin → Regiões)
 - Painel admin: categorias, serviços e bairros 100% cadastráveis sem mexer em código
 
-- ⏳ Endereço completo, solicitação de serviço, avaliações → próximas fases
+**Fase 3.1 — Endereço e cruzamento regional** ✅
+- Cliente e prestador cadastram endereço completo (`/cliente/endereco`,
+  `/prestador/endereco`: cidade + bairro + rua/número/complemento) numa
+  tabela única (`user_addresses`)
+- Home e busca do cliente já usam o bairro salvo automaticamente — e
+  ainda dá pra trocar na hora pra procurar em outro bairro
+- Endereço do prestador (onde mora) e região de atendimento (onde
+  atende) são telas separadas, do jeito que foi pedido
+- `service_requests` já com os campos de endereço prontos pro pedido
+  "congelar" o endereço usado (a tela de solicitar continua Fase 5)
+- Endereço nunca aparece completo em telas públicas — só o bairro
+
+- ⏳ Solicitação de serviço, aceitar/recusar, avaliações → próximas fases
   (ver `PROJETO_SPEC.md`)
 
 ## 1. Configurar o Supabase

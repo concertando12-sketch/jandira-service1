@@ -60,6 +60,40 @@ Este arquivo guarda as decisões tomadas na FASE 1 para o time (e para você) n�
   (seleção única com busca, usado no cliente) — ambos com o fluxo
   "não encontrei meu bairro" embutido ([suggest-region-form.tsx](src/components/regions/suggest-region-form.tsx)).
 
+## Fase 3.1 — Endereço e cruzamento regional (decisões)
+
+- **`user_addresses`**: tabela única pra CLIENT e PROVIDER (cidade fixa +
+  bairro + rua/número/complemento). Um endereço por usuário no MVP
+  (`unique(user_id)`), com `is_primary` já no schema pra quando permitirmos
+  vários endereços (item 21) — evitei o índice único parcial (`where
+  is_primary`) porque o `.upsert(..., {onConflict})` do supabase-js não
+  infere bem índice parcial; `unique(user_id)` simples resolve igual pro
+  MVP e migra fácil depois.
+- **`provider_profiles.region_id` foi removido** (existia desde a Parte 2)
+  — virou redundante com `user_addresses`. Onde o prestador mora agora
+  é 100% `user_addresses`; onde ele atende continua em `provider_regions`
+  (N:N, intocado).
+- **Duas telas separadas no prestador**, exatamente como pedido (item
+  16/17): `/prestador/endereco` (onde ele está) e `/prestador/regiao`
+  (bairros que atende) — a segunda não pergunta mais "onde você mora".
+- **Não veio como etapa bloqueante do cadastro**: segui o mesmo padrão da
+  Parte 2 (região do prestador) — telas dedicadas `/cliente/endereco` e
+  `/prestador/endereco`, com nudge no dashboard/nav, em vez de inflar o
+  formulário de cadastro inicial (item 38 da Parte 1: não criar telas
+  desnecessárias / atrito).
+- **Home do cliente e busca usam o bairro salvo automaticamente** (item
+  8/9/12): `/cliente/buscar` já chega com o bairro pré-selecionado (busca
+  inclusive roda no servidor, sem round-trip) — mas o cliente pode trocar
+  na hora (item 13, busca manual por outro bairro).
+- **`service_requests` ganhou `city_id`/`street`/`number`/`complement`**
+  (item 14) — schema pronto, mas a TELA de solicitar serviço continua
+  Fase 5 (ainda não construída), só o banco foi preparado agora.
+- **Privacidade (item 19/20)**: nenhuma query pública devolve rua/número —
+  `search_providers` só retorna o nome do bairro (`home_region_name`),
+  igual já era na Parte 2. O perfil público do prestador (`/cliente/prestador/[id]`)
+  continua como stub da Fase 4/5; quando for construído, é só respeitar
+  essa mesma regra (nunca renderizar `street`/`number`/`complement`).
+
 ## Fases
 
 Ver spec completa enviada pelo cliente. Ordem de execução: Fase 1 → Fase 8, uma de

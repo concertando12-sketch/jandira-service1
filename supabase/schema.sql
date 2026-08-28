@@ -96,6 +96,28 @@ create table if not exists public.users (
 );
 
 -- ---------------------------------------------------------------------
+-- ENDEREÇO (Fase 3.1) — cidade + bairro + rua/número/complemento.
+-- Único para CLIENT e PROVIDER (mesma tabela pros dois papéis). No MVP
+-- cada usuário tem só 1 endereço (unique em user_id); `is_primary`
+-- já existe pra quando permitirmos múltiplos endereços no futuro
+-- (item 21) sem precisar de outra migração.
+-- ---------------------------------------------------------------------
+create table if not exists public.user_addresses (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null unique references public.users(id) on delete cascade,
+  city_id uuid references public.cities(id),
+  region_id uuid references public.regions(id),
+  street text,
+  number text,
+  complement text,
+  is_primary boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_user_addresses_region on public.user_addresses(region_id);
+
+-- ---------------------------------------------------------------------
 -- CATEGORIAS E SERVIÇOS (cadastráveis pelo admin, sem alterar código)
 -- ---------------------------------------------------------------------
 create table if not exists public.categories (
@@ -120,9 +142,9 @@ create table if not exists public.services (
 
 -- ---------------------------------------------------------------------
 -- PERFIL DO PRESTADOR
--- `region_id` = onde o prestador MORA (opcional, informativo).
--- Onde ele ATENDE fica em provider_regions (N:N) — são coisas
--- diferentes (item 26 da spec).
+-- Onde ele MORA fica em user_addresses (Fase 3.1, compartilhada com o
+-- cliente). Onde ele ATENDE fica em provider_regions (N:N) — são
+-- coisas diferentes (item 6/26 da spec).
 -- ---------------------------------------------------------------------
 create table if not exists public.provider_profiles (
   id uuid primary key default gen_random_uuid(),
@@ -132,9 +154,6 @@ create table if not exists public.provider_profiles (
   phone text,
   whatsapp text,
   profile_photo text,
-  city_id uuid references public.cities(id),
-  region_id uuid references public.regions(id),
-  address text,
   latitude numeric(9,6),
   longitude numeric(9,6),
   -- Reservado para quando o Google Maps entrar (raio real por
@@ -154,7 +173,6 @@ create table if not exists public.provider_profiles (
 );
 
 create index if not exists idx_provider_profiles_active on public.provider_profiles(is_active);
-create index if not exists idx_provider_profiles_region on public.provider_profiles(region_id);
 
 create table if not exists public.provider_services (
   id uuid primary key default gen_random_uuid(),
@@ -178,6 +196,9 @@ create index if not exists idx_provider_regions_region on public.provider_region
 
 -- ---------------------------------------------------------------------
 -- SOLICITAÇÕES DE SERVIÇO
+-- Guarda o endereço "congelado" no momento da solicitação (item 14/15
+-- da Fase 3.1) — se o cliente mudar de endereço depois, o pedido
+-- antigo continua com o endereço de quando foi feito.
 -- ---------------------------------------------------------------------
 create table if not exists public.service_requests (
   id uuid primary key default gen_random_uuid(),
@@ -185,9 +206,11 @@ create table if not exists public.service_requests (
   provider_id uuid not null references public.provider_profiles(id) on delete cascade,
   service_id uuid not null references public.services(id),
   description text,
-  address text,
+  city_id uuid references public.cities(id),
   region_id uuid references public.regions(id),
-  city text,
+  street text,
+  number text,
+  complement text,
   latitude numeric(9,6),
   longitude numeric(9,6),
   status request_status not null default 'PENDING',
@@ -357,6 +380,11 @@ create trigger trg_touch_regions
   before update on public.regions
   for each row execute function public.touch_updated_at();
 
+drop trigger if exists trg_touch_user_addresses on public.user_addresses;
+create trigger trg_touch_user_addresses
+  before update on public.user_addresses
+  for each row execute function public.touch_updated_at();
+
 -- ---------------------------------------------------------------------
 -- MOTOR DE BUSCA / MATCH (Parte 2 — sem raio, sem Google Maps)
 -- Encontra prestadores ativos que oferecem o serviço E que marcaram o
@@ -399,7 +427,8 @@ as $$
   join public.provider_services ps on ps.provider_id = pp.id
   join public.services s on s.id = ps.service_id and s.slug = p_service_slug and s.is_active
   join public.provider_regions pr on pr.provider_id = pp.id and pr.region_id = p_region_id
-  left join public.regions hr on hr.id = pp.region_id
+  left join public.user_addresses ua on ua.user_id = pp.user_id
+  left join public.regions hr on hr.id = ua.region_id
   where pp.is_active = true
   order by pp.is_verified desc, pp.rating_avg desc nulls last, pp.profile_completion desc;
 $$;
@@ -480,6 +509,7 @@ alter table public.services enable row level security;
 alter table public.provider_profiles enable row level security;
 alter table public.provider_services enable row level security;
 alter table public.provider_regions enable row level security;
+alter table public.user_addresses enable row level security;
 alter table public.service_requests enable row level security;
 alter table public.reviews enable row level security;
 alter table public.favorites enable row level security;
@@ -514,6 +544,13 @@ create policy "users_select_own_or_admin" on public.users for select
 drop policy if exists "users_update_own_or_admin" on public.users;
 create policy "users_update_own_or_admin" on public.users for update
   using (id = auth.uid() or public.is_admin());
+
+-- user_addresses: endereço é privado — só o dono e admin veem/mexem
+-- (item 19: nunca fica público na tela do prestador).
+drop policy if exists "user_addresses_all_own_or_admin" on public.user_addresses;
+create policy "user_addresses_all_own_or_admin" on public.user_addresses for all
+  using (user_id = auth.uid() or public.is_admin())
+  with check (user_id = auth.uid() or public.is_admin());
 
 -- categories / services: leitura pública dos ativos, escrita só admin.
 drop policy if exists "categories_select" on public.categories;

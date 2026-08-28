@@ -11,7 +11,7 @@ export default async function AdminPrestadoresPage() {
   const { data: providers } = await supabase
     .from("provider_profiles")
     .select(
-      "id, professional_name, is_active, is_verified, rating_avg, rating_count, users(name, email), regions(name), provider_regions(count)",
+      "id, professional_name, is_active, is_verified, rating_avg, rating_count, users(name, email, user_addresses(regions(name))), provider_regions(count)",
     )
     .order("created_at", { ascending: false });
 
@@ -34,7 +34,8 @@ export default async function AdminPrestadoresPage() {
                   {p.is_verified && <Badge variant="brand">✓ Verificado</Badge>}
                 </div>
                 <p className="text-sm text-muted">
-                  {p.users?.email} · mora em {p.regions?.name ?? "não informado"} · atende{" "}
+                  {p.users?.email} · mora em{" "}
+                  {p.users?.user_addresses?.regions?.name ?? "não informado"} · atende{" "}
                   {p.provider_regions?.[0]?.count ?? 0} bairro(s) ·{" "}
                   {p.rating_count > 0 ? `⭐ ${p.rating_avg} (${p.rating_count})` : "sem avaliações"}
                 </p>

@@ -1,4 +1,4 @@
-import { Home, ClipboardList, Wrench, MapPin, User, Settings } from "lucide-react";
+import { Home, ClipboardList, Wrench, MapPin, User, Settings, Building2 } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { requireRole } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/constants";
@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { href: "/prestador/solicitacoes", label: "Solicitações", icon: ClipboardList },
   { href: "/prestador/servicos", label: "Meus serviços", icon: Wrench },
   { href: "/prestador/regiao", label: "Minha região", icon: MapPin },
+  { href: "/prestador/endereco", label: "Meu endereço", icon: Building2 },
   { href: "/prestador/perfil", label: "Meu perfil", icon: User },
   { href: "/prestador/configuracoes", label: "Configurações", icon: Settings },
 ];

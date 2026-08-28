@@ -10,7 +10,7 @@ export default async function ClienteDashboardPage() {
   const user = await requireRole("CLIENT");
   const supabase = await createClient();
 
-  const [{ count: openRequests }, { count: favoritesCount }, { data: categories }] =
+  const [{ count: openRequests }, { count: favoritesCount }, { data: categories }, { data: address }] =
     await Promise.all([
       supabase
         .from("service_requests")
@@ -27,16 +27,28 @@ export default async function ClienteDashboardPage() {
         .eq("is_active", true)
         .order("name")
         .limit(8),
+      supabase.from("user_addresses").select("regions(name)").eq("user_id", user.id).maybeSingle(),
     ]);
 
   const firstName = user.name.split(" ")[0] || user.name;
+  const regionName = address?.regions?.name ?? null;
 
   return (
     <div>
-      <div className="mb-1 inline-flex items-center gap-1.5 text-xs font-medium text-muted">
-        <MapPin className="h-3.5 w-3.5 text-brand" />
-        {APP_CITY} — defina seu bairro na busca
-      </div>
+      {regionName ? (
+        <div className="mb-1 inline-flex items-center gap-1.5 text-xs font-medium text-muted">
+          <MapPin className="h-3.5 w-3.5 text-brand" />
+          {regionName}, {APP_CITY}
+        </div>
+      ) : (
+        <Link
+          href="/cliente/endereco"
+          className="mb-1 inline-flex items-center gap-1.5 text-xs font-medium text-brand hover:underline"
+        >
+          <MapPin className="h-3.5 w-3.5" />
+          Defina seu bairro em {APP_CITY}
+        </Link>
+      )}
       <h1 className="text-xl font-bold text-foreground sm:text-2xl">Olá, {firstName} 👋</h1>
       <p className="mt-1 text-sm text-muted">O que você precisa hoje?</p>
 
@@ -80,11 +92,15 @@ export default async function ClienteDashboardPage() {
 
       <Card className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="font-semibold text-foreground">Prestadores perto de você</p>
-          <p className="text-sm text-muted">Disponível assim que a busca por região entrar no ar.</p>
+          <p className="font-semibold text-foreground">Prestadores no seu bairro</p>
+          <p className="text-sm text-muted">
+            {regionName
+              ? `Veja quem atende ${regionName} agora mesmo.`
+              : "Defina seu bairro pra já ver os prestadores certos direto na busca."}
+          </p>
         </div>
         <LinkButton href="/cliente/buscar" variant="secondary" size="sm">
-          Ver busca
+          Buscar
         </LinkButton>
       </Card>
     </div>
