@@ -6,6 +6,8 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ServiceRequestForm } from "@/components/provider/service-request-form";
+import { ProviderAvatar } from "@/components/provider/provider-avatar";
+import { StarRating } from "@/components/ui/star-rating";
 
 export default async function SolicitarServicoPage({
   params,
@@ -40,7 +42,7 @@ export default async function SolicitarServicoPage({
     supabase
       .from("provider_profiles")
       .select(
-        "id, professional_name, is_active, provider_services(services(id, name)), provider_regions(regions(id, name))",
+        "id, professional_name, profile_photo, rating_avg, rating_count, is_verified, is_active, provider_services(services(id, name)), provider_regions(regions(id, name))",
       )
       .eq("id", id)
       .eq("is_active", true)
@@ -79,10 +81,23 @@ export default async function SolicitarServicoPage({
 
   return (
     <div className="mx-auto max-w-lg">
-      <PageHeader
-        title="Solicitar serviço"
-        description={`Para ${provider.professional_name}`}
-      />
+      <PageHeader title="Solicitar serviço" />
+
+      <Card className="mb-4 flex items-center gap-3">
+        <ProviderAvatar photoUrl={provider.profile_photo} name={provider.professional_name} size="md" />
+        <div>
+          <p className="font-semibold text-foreground">
+            {provider.professional_name}
+            {provider.is_verified && <span className="ml-1 text-brand">✓</span>}
+          </p>
+          {provider.rating_count > 0 ? (
+            <StarRating value={provider.rating_avg} count={provider.rating_count} />
+          ) : (
+            <p className="text-xs text-muted">Sem avaliações ainda</p>
+          )}
+        </div>
+      </Card>
+
       <Card>
         {services.length === 0 || regions.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted">

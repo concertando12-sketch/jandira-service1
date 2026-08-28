@@ -142,8 +142,8 @@ export function ProfileForm({
           placeholder="(11) 90000-0000"
         />
         <p className="mt-1 text-xs text-muted">
-          Contato de referência no seu cadastro (não aparece publicamente — dúvidas de cliente
-          e prestador vão pelo suporte).
+          É pra esse número que o botão &quot;Orçamento no WhatsApp&quot; do seu perfil leva o
+          cliente. O número não aparece como texto na página pública, só o botão.
         </p>
       </div>
 

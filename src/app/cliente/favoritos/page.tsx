@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { Card, Badge } from "@/components/ui/card";
 import { StarRating } from "@/components/ui/star-rating";
 import { FavoriteButton } from "@/components/provider/favorite-button";
+import { ProviderAvatar } from "@/components/provider/provider-avatar";
 
 export default async function ClienteFavoritosPage() {
   const user = await requireRole("CLIENT");
@@ -13,7 +14,7 @@ export default async function ClienteFavoritosPage() {
   const { data: favorites } = await supabase
     .from("favorites")
     .select(
-      "id, provider_profiles(id, professional_name, rating_avg, rating_count, is_verified, provider_services(services(name)))",
+      "id, provider_profiles(id, professional_name, profile_photo, rating_avg, rating_count, is_verified, provider_services(services(name)))",
     )
     .eq("client_id", user.id)
     .order("created_at", { ascending: false });
@@ -30,9 +31,7 @@ export default async function ClienteFavoritosPage() {
         <div className="flex flex-col gap-3">
           {providers.map((p) => (
             <Card key={p.id} className="flex items-center gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-2 text-lg font-bold text-brand">
-                {p.professional_name?.charAt(0)?.toUpperCase() ?? "?"}
-              </div>
+              <ProviderAvatar photoUrl={p.profile_photo} name={p.professional_name} size="md" />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <p className="font-semibold text-foreground">{p.professional_name}</p>

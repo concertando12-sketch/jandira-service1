@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/input";
 import { StarRating } from "@/components/ui/star-rating";
 import { FavoriteButton } from "@/components/provider/favorite-button";
+import { ProviderAvatar } from "@/components/provider/provider-avatar";
 import { RegionSearchSelect } from "@/components/regions/region-search-select";
 import type { RegionOption } from "@/components/regions/region-checkbox-list";
 import { cn } from "@/lib/utils";
@@ -243,9 +244,7 @@ export function BuscarForm({
               const otherRegions = r.other_regions ?? [];
               return (
                 <Card key={r.provider_id} className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-2 text-lg font-bold text-brand">
-                    {r.professional_name?.charAt(0)?.toUpperCase() ?? "?"}
-                  </div>
+                  <ProviderAvatar photoUrl={r.profile_photo} name={r.professional_name} size="md" />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <p className="font-semibold text-foreground">{r.professional_name}</p>

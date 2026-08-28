@@ -6,6 +6,9 @@ import { LinkButton } from "@/components/ui/button";
 import { StarRating } from "@/components/ui/star-rating";
 import { FavoriteButton } from "@/components/provider/favorite-button";
 import { ReportProviderButton } from "@/components/provider/report-provider-button";
+import { WhatsAppQuoteButton } from "@/components/provider/whatsapp-quote-button";
+import { ProviderAvatar } from "@/components/provider/provider-avatar";
+import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { APP_CITY, APP_STATE } from "@/lib/constants";
 
 export default async function PrestadorPublicoPage({
@@ -20,7 +23,7 @@ export default async function PrestadorPublicoPage({
   const { data: provider } = await supabase
     .from("provider_profiles")
     .select(
-      `id, user_id, professional_name, description, profile_photo, price_from, price_to, availability,
+      `id, user_id, professional_name, description, profile_photo, whatsapp, price_from, price_to, availability,
        is_verified, is_active, status, rating_avg, rating_count,
        provider_services(services(id, name, slug, categories(name))),
        provider_regions(regions(id, name)),
@@ -65,6 +68,15 @@ export default async function PrestadorPublicoPage({
     .filter((r): r is NonNullable<typeof r> => Boolean(r));
   const homeRegionName = provider.users?.user_addresses?.regions?.name ?? null;
 
+  // Item 6 da spec: mensagem dinâmica com nome do prestador + serviço
+  // (usa o primeiro serviço oferecido quando ele tem mais de um).
+  const whatsappLink = buildWhatsAppLink(
+    provider.whatsapp,
+    `Olá, ${provider.professional_name}! Encontrei seu perfil no Jandira Service.\n\nTenho interesse em solicitar um orçamento para o serviço de ${
+      services[0]?.name ?? "que você oferece"
+    }.\n\nGostaria de explicar o que preciso e saber valores, prazos e disponibilidade.\n\nObrigado!`,
+  );
+
   return (
     <div className="mx-auto max-w-2xl">
       <div className="mb-2 flex justify-end">
@@ -72,9 +84,7 @@ export default async function PrestadorPublicoPage({
       </div>
 
       <Card className="flex flex-col items-center py-8 text-center">
-        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-surface-2 text-2xl font-bold text-brand">
-          {provider.professional_name?.charAt(0)?.toUpperCase() ?? "?"}
-        </div>
+        <ProviderAvatar photoUrl={provider.profile_photo} name={provider.professional_name} />
         <div className="mt-3 flex items-center gap-2">
           <h1 className="text-xl font-bold text-foreground">{provider.professional_name}</h1>
           <FavoriteButton providerId={provider.id} initialFavorited={Boolean(favorite)} />
@@ -175,10 +185,13 @@ export default async function PrestadorPublicoPage({
         )}
       </Card>
 
-      <div className="mt-6">
+      <div className="mt-6 flex flex-col gap-3">
         <LinkButton href={`/cliente/prestador/${provider.id}/solicitar`} className="w-full justify-center">
           Solicitar serviço
         </LinkButton>
+        {whatsappLink && (
+          <WhatsAppQuoteButton whatsappLink={whatsappLink} providerName={provider.professional_name} />
+        )}
       </div>
     </div>
   );
