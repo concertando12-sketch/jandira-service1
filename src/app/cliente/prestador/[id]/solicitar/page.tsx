@@ -21,6 +21,7 @@ export default async function SolicitarServicoPage({
       )
       .eq("id", id)
       .eq("is_active", true)
+      .eq("status", "APPROVED")
       .maybeSingle(),
     supabase
       .from("user_addresses")

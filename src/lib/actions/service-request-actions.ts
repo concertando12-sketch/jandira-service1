@@ -76,11 +76,18 @@ export async function createServiceRequestAction(
         .eq("provider_id", providerId)
         .eq("region_id", regionId)
         .maybeSingle(),
-      supabase.from("provider_profiles").select("user_id, professional_name").eq("id", providerId).maybeSingle(),
+      supabase
+        .from("provider_profiles")
+        .select("user_id, professional_name, is_active, status")
+        .eq("id", providerId)
+        .maybeSingle(),
     ]);
 
   if (!providerService) return { ok: false, message: "Esse prestador não oferece esse serviço." };
   if (!providerRegion) return { ok: false, message: "Esse prestador não atende esse bairro." };
+  if (!providerProfile?.is_active || providerProfile.status !== "APPROVED") {
+    return { ok: false, message: "Esse prestador não está disponível no momento." };
+  }
 
   const { data: city } = await supabase
     .from("cities")

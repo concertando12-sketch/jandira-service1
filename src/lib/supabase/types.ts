@@ -17,6 +17,9 @@ export type RequestStatus =
   | "CANCELLED";
 
 export type SuggestionStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type ProviderStatus = "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED" | "INACTIVE";
+export type ReportStatus = "PENDING" | "IN_REVIEW" | "RESOLVED" | "DISMISSED";
+export type DocumentType = "IDENTITY" | "PROOF_OF_ADDRESS" | "PROFESSIONAL_DOCUMENT" | "OTHER";
 
 export interface Database {
   public: {
@@ -29,6 +32,7 @@ export interface Database {
           phone: string | null;
           role: UserRole;
           avatar_url: string | null;
+          is_active: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -206,6 +210,8 @@ export interface Database {
           availability: string | null;
           is_verified: boolean;
           is_active: boolean;
+          status: ProviderStatus;
+          status_reason: string | null;
           profile_completion: number;
           rating_avg: number;
           rating_count: number;
@@ -359,6 +365,7 @@ export interface Database {
           service_request_id: string;
           rating: number;
           comment: string | null;
+          is_visible: boolean;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["reviews"]["Row"]> & {
@@ -451,6 +458,99 @@ export interface Database {
             columns: ["service_request_id"];
             isOneToOne: false;
             referencedRelation: "service_requests";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      provider_documents: {
+        Row: {
+          id: string;
+          provider_id: string;
+          document_type: DocumentType;
+          file_url: string;
+          status: SuggestionStatus;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["provider_documents"]["Row"]> & {
+          provider_id: string;
+          document_type: DocumentType;
+          file_url: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["provider_documents"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "provider_documents_provider_id_fkey";
+            columns: ["provider_id"];
+            isOneToOne: false;
+            referencedRelation: "provider_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      reports: {
+        Row: {
+          id: string;
+          reporter_id: string;
+          reported_user_id: string;
+          service_request_id: string | null;
+          reason: string;
+          description: string | null;
+          status: ReportStatus;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["reports"]["Row"]> & {
+          reporter_id: string;
+          reported_user_id: string;
+          reason: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["reports"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "reports_reporter_id_fkey";
+            columns: ["reporter_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reports_reported_user_id_fkey";
+            columns: ["reported_user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reports_service_request_id_fkey";
+            columns: ["service_request_id"];
+            isOneToOne: false;
+            referencedRelation: "service_requests";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      admin_logs: {
+        Row: {
+          id: string;
+          admin_id: string;
+          action: string;
+          target_type: string;
+          target_id: string | null;
+          description: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["admin_logs"]["Row"]> & {
+          admin_id: string;
+          action: string;
+          target_type: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["admin_logs"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "admin_logs_admin_id_fkey";
+            columns: ["admin_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
             referencedColumns: ["id"];
           },
         ];

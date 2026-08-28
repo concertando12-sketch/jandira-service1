@@ -6,6 +6,7 @@ import { Card, Badge } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { StarRating } from "@/components/ui/star-rating";
 import { FavoriteButton } from "@/components/provider/favorite-button";
+import { ReportProviderButton } from "@/components/provider/report-provider-button";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { APP_CITY, APP_STATE } from "@/lib/constants";
 
@@ -21,14 +22,15 @@ export default async function PrestadorPublicoPage({
   const { data: provider } = await supabase
     .from("provider_profiles")
     .select(
-      `id, professional_name, description, profile_photo, whatsapp, price_from, price_to, availability,
-       is_verified, is_active, rating_avg, rating_count,
+      `id, user_id, professional_name, description, profile_photo, whatsapp, price_from, price_to, availability,
+       is_verified, is_active, status, rating_avg, rating_count,
        provider_services(services(id, name, slug, categories(name))),
        provider_regions(regions(id, name)),
        users(user_addresses(regions(name)))`,
     )
     .eq("id", id)
     .eq("is_active", true)
+    .eq("status", "APPROVED")
     .maybeSingle();
 
   if (!provider) {
@@ -46,6 +48,7 @@ export default async function PrestadorPublicoPage({
       .from("reviews")
       .select("id, rating, comment, created_at, users(name)")
       .eq("provider_id", id)
+      .eq("is_visible", true)
       .order("created_at", { ascending: false })
       .limit(20),
     supabase
@@ -71,6 +74,10 @@ export default async function PrestadorPublicoPage({
 
   return (
     <div className="mx-auto max-w-2xl">
+      <div className="mb-2 flex justify-end">
+        <ReportProviderButton reportedUserId={provider.user_id} />
+      </div>
+
       <Card className="flex flex-col items-center py-8 text-center">
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-surface-2 text-2xl font-bold text-brand">
           {provider.professional_name?.charAt(0)?.toUpperCase() ?? "?"}

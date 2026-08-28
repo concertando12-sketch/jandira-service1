@@ -15,6 +15,7 @@ export const PREVIEW_USERS: Record<UserRole, CurrentUser> = {
     phone: "(11) 90000-0000",
     role: "CLIENT",
     avatar_url: null,
+    is_active: true,
   },
   PROVIDER: {
     id: "preview-provider",
@@ -23,6 +24,7 @@ export const PREVIEW_USERS: Record<UserRole, CurrentUser> = {
     phone: "(11) 90000-0001",
     role: "PROVIDER",
     avatar_url: null,
+    is_active: true,
   },
   ADMIN: {
     id: "preview-admin",
@@ -31,6 +33,7 @@ export const PREVIEW_USERS: Record<UserRole, CurrentUser> = {
     phone: null,
     role: "ADMIN",
     avatar_url: null,
+    is_active: true,
   },
 };
 

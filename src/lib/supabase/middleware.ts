@@ -16,6 +16,10 @@ const PROTECTED_PREFIXES: { prefix: string; role: UserRole }[] = [
   { prefix: "/admin", role: "ADMIN" },
 ];
 
+// /admin/login é a entrada — não pode exigir já estar logado como
+// admin, senão ninguém nunca chegaria nela (item 1 da Fase 6).
+const PUBLIC_EXCEPTIONS = ["/admin/login"];
+
 // Roda em toda navegação (src/middleware.ts). Garante duas coisas:
 //  1. a sessão do Supabase é renovada (SSR precisa disso);
 //  2. rotas de /cliente, /prestador e /admin só respondem para quem
@@ -24,9 +28,10 @@ const PROTECTED_PREFIXES: { prefix: string; role: UserRole }[] = [
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  const isProtected = PROTECTED_PREFIXES.some(({ prefix }) =>
-    request.nextUrl.pathname.startsWith(prefix),
-  );
+  const isPublicException = PUBLIC_EXCEPTIONS.some((path) => request.nextUrl.pathname === path);
+  const isProtected =
+    !isPublicException &&
+    PROTECTED_PREFIXES.some(({ prefix }) => request.nextUrl.pathname.startsWith(prefix));
 
   if (!isSupabaseConfigured) {
     // Sem credenciais ainda: deixa navegar livremente pelas telas

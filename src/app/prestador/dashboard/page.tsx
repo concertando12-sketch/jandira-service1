@@ -12,7 +12,7 @@ export default async function PrestadorDashboardPage() {
 
   const { data: profile } = await supabase
     .from("provider_profiles")
-    .select("id, is_active, is_verified, profile_completion, rating_avg, rating_count")
+    .select("id, is_active, is_verified, status, status_reason, profile_completion, rating_avg, rating_count")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -85,6 +85,41 @@ export default async function PrestadorDashboardPage() {
         />
       </div>
 
+      {profile && profile.status === "PENDING" && (
+        <Card className="mt-6 border-brand/40 bg-brand/10">
+          <p className="font-semibold text-foreground">🕐 Cadastro em análise</p>
+          <p className="mt-1 text-sm text-muted">
+            Seu perfil está publicado, mas só aparece pros clientes depois que a equipe do
+            Jandira Service homologar seu cadastro. Isso costuma ser rápido.
+          </p>
+        </Card>
+      )}
+
+      {profile && profile.status === "REJECTED" && (
+        <Card className="mt-6 border-danger/40 bg-danger/10">
+          <p className="font-semibold text-foreground">Seu cadastro não foi aprovado</p>
+          {profile.status_reason && (
+            <p className="mt-1 text-sm text-muted">Motivo: {profile.status_reason}</p>
+          )}
+          <Link href="/prestador/perfil" className="mt-2 inline-block text-sm font-semibold text-brand hover:underline">
+            Atualizar cadastro
+          </Link>
+        </Card>
+      )}
+
+      {profile && profile.status === "SUSPENDED" && (
+        <Card className="mt-6 border-danger/40 bg-danger/10">
+          <p className="font-semibold text-foreground">Seu perfil está suspenso</p>
+          {profile.status_reason && (
+            <p className="mt-1 text-sm text-muted">Motivo: {profile.status_reason}</p>
+          )}
+          <p className="mt-1 text-sm text-muted">
+            Você não aparece nas buscas enquanto estiver suspenso. Fale com o suporte se
+            achar que isso é um engano.
+          </p>
+        </Card>
+      )}
+
       {profile && (
         <Card className="mt-6 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -93,9 +128,9 @@ export default async function PrestadorDashboardPage() {
               {profile.is_verified && " · ✓ Verificado"}
             </p>
             <p className="text-sm text-muted">
-              {profile.is_active
-                ? "Seu perfil já pode ser encontrado por clientes."
-                : "Publique seu perfil para começar a receber solicitações."}
+              {profile.status === "APPROVED"
+                ? "Seu perfil está homologado e pode ser encontrado por clientes."
+                : "Complete seu perfil e aguarde a homologação do admin."}
             </p>
           </div>
           <Link href="/prestador/perfil" className="text-sm font-semibold text-brand hover:underline">

@@ -231,6 +231,9 @@ async function main() {
           price_to: provider.priceTo,
           is_active: true,
           is_verified: provider.verified,
+          // Já nascem homologados pra dar pra testar a busca/solicitação
+          // direto (Fase 6 exige status=APPROVED pra aparecer — item 42).
+          status: "APPROVED",
           profile_completion: 100,
         },
         { onConflict: "user_id" },

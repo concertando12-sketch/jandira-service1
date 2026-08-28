@@ -71,7 +71,19 @@ Supabase de verdade.
 - Página de detalhe da solicitação (`/cliente/solicitacoes/[id]`) e abas de status
   nas duas listas
 
-- ⏳ Refinamentos de perfil profissional, admin (regiões, verificação em lote) →
+**Fase 6 — Painel administrativo, homologação e controle** ✅
+- `/admin/login`: entrada separada do cadastro comum (mesmo Supabase Auth por baixo,
+  já seguro — sem reinventar hash de senha)
+- Homologação de prestador: `PENDING → APPROVED/REJECTED/SUSPENDED`, só o admin muda
+  (`/admin/homologacao`, `/admin/prestadores/[id]`) — só aparece na busca quando
+  publicado **e** homologado
+- Bloqueio de conta (cliente ou prestador), moderação de avaliação (ocultar sem
+  apagar), denúncias (`/admin/denuncias`) e log administrativo (`/admin/logs`)
+- Dashboard com alertas clicáveis (prestadores pendentes, denúncias, sugestões de
+  bairro) e estatísticas agrupadas (usuários/serviços/plataforma)
+- Busca de clientes por nome/e-mail/telefone/bairro
+
+- ⏳ Refinamentos de perfil profissional, upload de documentos do prestador →
   próximas fases (ver `PROJETO_SPEC.md`)
 
 ## 1. Configurar o Supabase
@@ -125,16 +137,27 @@ função `handle_new_user`). Para criar o primeiro admin:
 update public.users set role = 'ADMIN' where email = 'seu-email@exemplo.com';
 ```
 
+Depois é só entrar em [/admin/login](http://localhost:3000/admin/login) — é uma
+entrada separada do login comum, não aparece linkada em nenhum lugar do app pro
+cliente/prestador.
+
 ## Estrutura
 
 ```
 src/
   app/
-    (landing, login, cadastro, recuperar-senha, redefinir-senha, auth/callback)
-    cliente/   → dashboard, categorias, buscar, solicitacoes, favoritos, perfil, prestador/[id]
-    prestador/ → dashboard, solicitacoes, servicos, perfil, regiao, configuracoes
-    admin/     → dashboard, clientes, prestadores, categorias, servicos, solicitacoes, avaliacoes, regioes, configuracoes
-  components/  → ui/ (design system), brand/ (logo), dashboard/, admin/, account/, auth/
+    (landing, login, cadastro, recuperar-senha, redefinir-senha, auth/callback, bloqueado)
+    cliente/   → dashboard, categorias, buscar, solicitacoes(+[id]), favoritos, endereco,
+                 notificacoes, perfil, prestador/[id](+/solicitar)
+    prestador/ → dashboard, solicitacoes, servicos, perfil, regiao, endereco,
+                 notificacoes, configuracoes
+    admin/
+      login/         → única página pública sob /admin
+      (protected)/   → route group (não entra na URL): dashboard, clientes(+[id]),
+                        prestadores(+[id]), homologacao, categorias, servicos, regioes,
+                        solicitacoes, avaliacoes, denuncias, logs, configuracoes
+  components/  → ui/ (design system), brand/ (logo), dashboard/, admin/, account/, auth/,
+                 client/, provider/, regions/, notifications/, address/
   lib/
     supabase/  → clients (browser, server, middleware) + tipos do banco
     actions/   → Server Actions (conta, admin)

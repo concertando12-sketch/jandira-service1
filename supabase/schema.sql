@@ -35,6 +35,22 @@ do $$ begin
   create type suggestion_status as enum ('PENDING', 'APPROVED', 'REJECTED');
 exception when duplicate_object then null; end $$;
 
+-- Homologação do prestador (Fase 6, item 10) — separado de
+-- provider_profiles.is_active (que é o prestador publicando o
+-- próprio perfil). Pra aparecer na busca precisa das duas coisas
+-- (item 42): is_active = true E status = APPROVED.
+do $$ begin
+  create type provider_status as enum ('PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED', 'INACTIVE');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type report_status as enum ('PENDING', 'IN_REVIEW', 'RESOLVED', 'DISMISSED');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type document_type as enum ('IDENTITY', 'PROOF_OF_ADDRESS', 'PROFESSIONAL_DOCUMENT', 'OTHER');
+exception when duplicate_object then null; end $$;
+
 -- ---------------------------------------------------------------------
 -- CIDADES E REGIÕES (bairros)
 -- Estrutura cities → regions preparada para múltiplas cidades no
@@ -91,6 +107,10 @@ create table if not exists public.users (
   phone text,
   role user_role not null default 'CLIENT',
   avatar_url text,
+  -- Conta bloqueada pelo admin (Fase 6, item 8) — diferente do status
+  -- de homologação do prestador, isso é "essa pessoa pode usar o
+  -- app?" e vale pra CLIENT e PROVIDER igual.
+  is_active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -165,6 +185,10 @@ create table if not exists public.provider_profiles (
   availability text,
   is_verified boolean not null default false,
   is_active boolean not null default false,
+  -- Homologação (Fase 6, item 10/42): controlada só pelo admin (ver
+  -- trigger prevent_provider_status_escalation, mais abaixo).
+  status provider_status not null default 'PENDING',
+  status_reason text,
   profile_completion int not null default 0,
   rating_avg numeric(3,2) not null default 0,
   rating_count int not null default 0,
@@ -173,6 +197,7 @@ create table if not exists public.provider_profiles (
 );
 
 create index if not exists idx_provider_profiles_active on public.provider_profiles(is_active);
+create index if not exists idx_provider_profiles_status on public.provider_profiles(status);
 
 create table if not exists public.provider_services (
   id uuid primary key default gen_random_uuid(),
@@ -250,6 +275,10 @@ create table if not exists public.reviews (
   service_request_id uuid not null unique references public.service_requests(id) on delete cascade,
   rating int not null check (rating between 1 and 5),
   comment text,
+  -- Moderação (Fase 6, item 32) — nunca deleta, só esconde. A média
+  -- do prestador (trigger update_provider_rating) só conta as
+  -- visíveis.
+  is_visible boolean not null default true,
   created_at timestamptz not null default now()
 );
 
@@ -263,6 +292,53 @@ create table if not exists public.favorites (
   created_at timestamptz not null default now(),
   unique (client_id, provider_id)
 );
+
+-- ---------------------------------------------------------------------
+-- DOCUMENTOS DO PRESTADOR (Fase 6, item 13)
+-- Estrutura pronta pra quando homologação por documento entrar — o
+-- MVP não exige nenhum documento nem tem upload ainda, só o schema.
+-- ---------------------------------------------------------------------
+create table if not exists public.provider_documents (
+  id uuid primary key default gen_random_uuid(),
+  provider_id uuid not null references public.provider_profiles(id) on delete cascade,
+  document_type document_type not null,
+  file_url text not null,
+  status suggestion_status not null default 'PENDING',
+  created_at timestamptz not null default now()
+);
+
+-- ---------------------------------------------------------------------
+-- DENÚNCIAS (Fase 6, item 33/34/35)
+-- ---------------------------------------------------------------------
+create table if not exists public.reports (
+  id uuid primary key default gen_random_uuid(),
+  reporter_id uuid not null references public.users(id) on delete cascade,
+  reported_user_id uuid not null references public.users(id) on delete cascade,
+  service_request_id uuid references public.service_requests(id) on delete set null,
+  reason text not null,
+  description text,
+  status report_status not null default 'PENDING',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_reports_reported_user on public.reports(reported_user_id);
+create index if not exists idx_reports_status on public.reports(status);
+
+-- ---------------------------------------------------------------------
+-- LOG ADMINISTRATIVO (Fase 6, item 40) — quem fez o quê.
+-- ---------------------------------------------------------------------
+create table if not exists public.admin_logs (
+  id uuid primary key default gen_random_uuid(),
+  admin_id uuid not null references public.users(id) on delete cascade,
+  action text not null,
+  target_type text not null,
+  target_id uuid,
+  description text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_admin_logs_created on public.admin_logs(created_at desc);
 
 -- ---------------------------------------------------------------------
 -- NOTIFICAÇÕES (item 34/35/36/37 da Fase 5)
@@ -351,7 +427,8 @@ create trigger on_auth_user_created
   for each row execute function public.handle_new_user();
 
 -- Impede que um usuário comum promova o próprio role para ADMIN/PROVIDER
--- via update direto na tabela (defesa em profundidade além do RLS).
+-- ou se desbloqueie sozinho (is_active) via update direto na tabela
+-- (defesa em profundidade além do RLS — item 8 da Fase 6).
 create or replace function public.prevent_role_escalation()
 returns trigger
 language plpgsql
@@ -359,8 +436,13 @@ security definer
 set search_path = public
 as $$
 begin
-  if new.role <> old.role and not public.is_admin() then
-    new.role := old.role;
+  if not public.is_admin() then
+    if new.role <> old.role then
+      new.role := old.role;
+    end if;
+    if new.is_active <> old.is_active then
+      new.is_active := old.is_active;
+    end if;
   end if;
   new.updated_at := now();
   return new;
@@ -372,7 +454,31 @@ create trigger trg_prevent_role_escalation
   before update on public.users
   for each row execute function public.prevent_role_escalation();
 
--- Mantém rating_avg / rating_count sempre corretos no perfil do prestador.
+-- Impede que o próprio prestador aprove/rejeite/verifique a si mesmo
+-- (Fase 6, item 8/42) — só admin muda status/is_verified/status_reason.
+create or replace function public.prevent_provider_status_escalation()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    new.status := old.status;
+    new.is_verified := old.is_verified;
+    new.status_reason := old.status_reason;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_prevent_provider_status_escalation on public.provider_profiles;
+create trigger trg_prevent_provider_status_escalation
+  before update on public.provider_profiles
+  for each row execute function public.prevent_provider_status_escalation();
+
+-- Mantém rating_avg / rating_count sempre corretos no perfil do
+-- prestador — só considera avaliações visíveis (item 32 da Fase 6).
 create or replace function public.update_provider_rating()
 returns trigger
 language plpgsql
@@ -383,8 +489,8 @@ declare
   target_provider uuid := coalesce(new.provider_id, old.provider_id);
 begin
   update public.provider_profiles set
-    rating_avg = coalesce((select round(avg(rating)::numeric, 2) from public.reviews where provider_id = target_provider), 0),
-    rating_count = (select count(*) from public.reviews where provider_id = target_provider)
+    rating_avg = coalesce((select round(avg(rating)::numeric, 2) from public.reviews where provider_id = target_provider and is_visible), 0),
+    rating_count = (select count(*) from public.reviews where provider_id = target_provider and is_visible)
   where id = target_provider;
   return null;
 end;
@@ -421,6 +527,11 @@ create trigger trg_touch_regions
 drop trigger if exists trg_touch_user_addresses on public.user_addresses;
 create trigger trg_touch_user_addresses
   before update on public.user_addresses
+  for each row execute function public.touch_updated_at();
+
+drop trigger if exists trg_touch_reports on public.reports;
+create trigger trg_touch_reports
+  before update on public.reports
   for each row execute function public.touch_updated_at();
 
 -- ---------------------------------------------------------------------
@@ -512,7 +623,14 @@ security definer
 set search_path = public
 as $$
 begin
-  if p_service_request_id is not null then
+  -- Admin pode notificar qualquer usuário por qualquer motivo (ex:
+  -- homologação, sem solicitação nenhuma envolvida — Fase 6). Usuário
+  -- comum só pode notificar alguém em nome de uma solicitação da qual
+  -- ele mesmo participa — nunca manda notificação "solta".
+  if not public.is_admin() then
+    if p_service_request_id is null then
+      raise exception 'Notificação sem solicitação associada só pode ser criada por um admin.';
+    end if;
     if not exists (
       select 1 from public.service_requests sr
       left join public.provider_profiles pp on pp.id = sr.provider_id
@@ -590,7 +708,9 @@ as $$
   join public.provider_regions pr on pr.provider_id = pp.id and pr.region_id = p_region_id
   left join public.user_addresses ua on ua.user_id = pp.user_id
   left join public.regions hr on hr.id = ua.region_id
-  where pp.is_active = true
+  -- Regra mais importante do marketplace (Fase 6, item 42): só
+  -- aparece publicado E homologado pelo admin.
+  where pp.is_active = true and pp.status = 'APPROVED'
   order by pp.is_verified desc, pp.rating_avg desc nulls last, pp.rating_count desc, pp.profile_completion desc
   limit p_limit offset p_offset;
 $$;
@@ -676,6 +796,9 @@ alter table public.service_requests enable row level security;
 alter table public.reviews enable row level security;
 alter table public.favorites enable row level security;
 alter table public.notifications enable row level security;
+alter table public.provider_documents enable row level security;
+alter table public.reports enable row level security;
+alter table public.admin_logs enable row level security;
 
 -- cities / regions: leitura pública dos ativos, escrita só admin.
 drop policy if exists "cities_select" on public.cities;
@@ -726,10 +849,11 @@ create policy "services_select" on public.services for select using (is_active o
 drop policy if exists "services_admin_write" on public.services;
 create policy "services_admin_write" on public.services for all using (public.is_admin()) with check (public.is_admin());
 
--- provider_profiles: público vê os ativos; dono vê/edita o próprio; admin tudo.
+-- provider_profiles: público só vê ativos E homologados (item 42);
+-- dono sempre vê o próprio (mesmo pendente); admin vê tudo.
 drop policy if exists "provider_profiles_select" on public.provider_profiles;
 create policy "provider_profiles_select" on public.provider_profiles for select
-  using (is_active or user_id = auth.uid() or public.is_admin());
+  using ((is_active and status = 'APPROVED') or user_id = auth.uid() or public.is_admin());
 drop policy if exists "provider_profiles_insert_own" on public.provider_profiles;
 create policy "provider_profiles_insert_own" on public.provider_profiles for insert
   with check (
@@ -811,10 +935,14 @@ create policy "service_requests_update" on public.service_requests for update
     or public.is_admin()
   );
 
--- reviews: leitura pública (fazem parte do perfil do prestador); só o
--- cliente dono do pedido concluído pode criar a avaliação daquele pedido.
+-- reviews: leitura pública das visíveis (fazem parte do perfil do
+-- prestador) — item 32 da Fase 6: uma oculta pelo admin some da
+-- vitrine, mas o próprio cliente que escreveu ainda enxerga a dele, e
+-- admin enxerga tudo. Só o cliente dono do pedido concluído pode criar
+-- a avaliação daquele pedido; só admin oculta/reexibe.
 drop policy if exists "reviews_select_public" on public.reviews;
-create policy "reviews_select_public" on public.reviews for select using (true);
+create policy "reviews_select_public" on public.reviews for select
+  using (is_visible or client_id = auth.uid() or public.is_admin());
 drop policy if exists "reviews_insert_client" on public.reviews;
 create policy "reviews_insert_client" on public.reviews for insert
   with check (
@@ -827,6 +955,10 @@ create policy "reviews_insert_client" on public.reviews for insert
         and sr.status = 'COMPLETED'
     )
   );
+drop policy if exists "reviews_admin_moderate" on public.reviews;
+create policy "reviews_admin_moderate" on public.reviews for update
+  using (public.is_admin())
+  with check (public.is_admin());
 
 -- favorites: só o próprio cliente.
 drop policy if exists "favorites_all_own" on public.favorites;
@@ -843,6 +975,40 @@ drop policy if exists "notifications_update_own" on public.notifications;
 create policy "notifications_update_own" on public.notifications for update
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
+
+-- provider_documents: dono e admin. Sem leitura pública (item 13 —
+-- nem construído ainda, só o schema).
+drop policy if exists "provider_documents_own_or_admin" on public.provider_documents;
+create policy "provider_documents_own_or_admin" on public.provider_documents for all
+  using (
+    public.is_admin()
+    or exists (select 1 from public.provider_profiles pp where pp.id = provider_documents.provider_id and pp.user_id = auth.uid())
+  )
+  with check (
+    public.is_admin()
+    or exists (select 1 from public.provider_profiles pp where pp.id = provider_documents.provider_id and pp.user_id = auth.uid())
+  );
+
+-- reports (denúncias, item 33/34/35): quem denunciou vê a própria;
+-- admin vê e resolve todas. Quem foi denunciado NUNCA vê (privacidade).
+drop policy if exists "reports_select" on public.reports;
+create policy "reports_select" on public.reports for select
+  using (reporter_id = auth.uid() or public.is_admin());
+drop policy if exists "reports_insert" on public.reports;
+create policy "reports_insert" on public.reports for insert
+  with check (reporter_id = auth.uid());
+drop policy if exists "reports_admin_update" on public.reports;
+create policy "reports_admin_update" on public.reports for update
+  using (public.is_admin())
+  with check (public.is_admin());
+
+-- admin_logs (item 40): só admin lê; insert só o próprio admin
+-- registrando a própria ação.
+drop policy if exists "admin_logs_admin_select" on public.admin_logs;
+create policy "admin_logs_admin_select" on public.admin_logs for select using (public.is_admin());
+drop policy if exists "admin_logs_admin_insert" on public.admin_logs;
+create policy "admin_logs_admin_insert" on public.admin_logs for insert
+  with check (admin_id = auth.uid() and public.is_admin());
 
 -- =====================================================================
 -- PERMISSÕES DAS FUNÇÕES RPC

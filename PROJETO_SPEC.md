@@ -192,6 +192,69 @@ o Supabase de verdade:
   status dentro de `/cliente/solicitacoes` e `/prestador/solicitacoes`
   (+ o resumo numérico no topo da tela do prestador) já cobrem isso.
 
+## Fase 6 — Painel administrativo, homologação e controle (decisões)
+
+- **Sem tabela `admin_users` própria**: o item 1/2 pedia login separado
+  com hash de senha próprio. Implementar isso do zero (hash, sessão,
+  cookies) duplicaria — pior, com mais risco — o que o Supabase Auth já
+  faz certo. Fica `/admin/login`: entrada separada, nunca linkada do
+  cadastro comum, com a cara de "Painel Administrativo", mas por baixo
+  é o mesmo Supabase Auth (que já nunca guarda senha em texto puro) —
+  só que rejeita e desloga na hora se `role != ADMIN`. Simplicidade
+  pedida no enunciado da própria fase, e sem reinventar autenticação.
+- **Bug real encontrado e corrigido nessa fase**: `/admin/login` estava
+  dentro de `src/app/admin/`, então herdava o `layout.tsx` que exige
+  `requireRole("ADMIN")` — ou seja, ninguém deslogado conseguia nem ver
+  a tela de login. Corrigido movendo todas as páginas protegidas pra
+  `src/app/admin/(protected)/` (route group do Next.js — não aparece na
+  URL), deixando `admin/login` como única página realmente pública sob
+  `/admin`.
+- **`status` (homologação) é separado de `is_active` (publicação)**:
+  `is_active` continua sendo o prestador publicando o próprio perfil
+  (Fase 2/3); `status` (`PENDING/APPROVED/REJECTED/SUSPENDED/INACTIVE`)
+  é só o admin quem muda — trigger `prevent_provider_status_escalation`
+  garante isso mesmo se alguém chamar a API direto. Pra aparecer na
+  busca agora precisa das duas coisas: `is_active = true AND status =
+  'APPROVED'` (item 42) — atualizado em `search_providers`, na RLS de
+  `provider_profiles` e nas telas que buscam prestador direto.
+- **Bloqueio de conta** (`users.is_active`, item 8) é diferente de
+  homologação — vale pra CLIENT e PROVIDER igual, é "essa pessoa pode
+  usar o app". Trigger em `users` (o mesmo que já impedia auto-promover
+  role) agora também impede a pessoa de se desbloquear sozinha.
+  `requireRole` manda quem está bloqueado pra `/bloqueado`.
+- **Avaliação oculta não conta na média**: `reviews.is_visible` — a
+  trigger `update_provider_rating` só soma as visíveis.
+- **`notify()` (Fase 5) ficou mais estrita**: agora só admin pode
+  disparar notificação sem `service_request_id` associado (precisava
+  pra avisar aprovação/recusa/suspensão, que não tem pedido nenhum
+  envolvido) — usuário comum continua só podendo notificar alguém em
+  nome de uma solicitação da qual participa.
+- **`provider_documents`**: schema pronto (item 13), sem upload nem
+  tela — não é obrigatório no MVP, exatamente como pedido.
+- **Item 30** ("ação administrativa" pra intervir manualmente numa
+  solicitação travada) não foi construído — é um caso de exceção sem
+  fluxo definido no enunciado; o admin já consegue ver tudo em
+  `/admin/solicitacoes`, só não tem um botão de forçar mudança de
+  status por enquanto.
+- **"Avaliações para análise"** (um dos 4 alertas do item 39) ficou de
+  fora do painel de alertas — no meu modelo as avaliações já nascem
+  visíveis (moderação é reativa, via denúncia ou revisão manual em
+  Avaliações), não existe uma fila de "pendente de análise" pra contar.
+  Os outros três alertas (prestadores pendentes, denúncias, sugestões
+  de bairro) estão todos lá, clicáveis.
+- **Busca administrativa global** (item 47) não virou uma tela própria
+  — só o que foi pedido explicitamente por nome (busca de clientes,
+  item 6) foi implementado. Um omnisearch cross-entidade fica pra
+  quando fizer falta de verdade.
+- **Menu fica em lista única**, não em árvore com submenus (item 4
+  sugeria "Usuários > Clientes/Prestadores" aninhado) — o
+  `DashboardShell` não tem esse nível de UI ainda; os itens estão todos
+  lá, só sem indentação visual agrupada.
+- **Permissões (item 41)**: nada de `SUPER_ADMIN`/`MODERATOR` agora,
+  como pedido — só documentando aqui que `role` já é um enum
+  (`user_role`) fácil de estender com mais valores no futuro sem quebrar
+  nada que já existe.
+
 ## Fases
 
 Ver spec completa enviada pelo cliente. Ordem de execução: Fase 1 → Fase 8, uma de

@@ -11,6 +11,8 @@ export interface CurrentUser {
   phone: string | null;
   role: UserRole;
   avatar_url: string | null;
+  // Conta bloqueada pelo admin (Fase 6, item 8) — ver requireRole.
+  is_active: boolean;
 }
 
 // Busca o usuário logado (auth + perfil em public.users) num Server
@@ -29,7 +31,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 
   const { data: profile } = await supabase
     .from("users")
-    .select("id, name, email, phone, role, avatar_url")
+    .select("id, name, email, phone, role, avatar_url, is_active")
     .eq("id", user.id)
     .single();
 
@@ -44,6 +46,7 @@ export async function requireRole(role: UserRole): Promise<CurrentUser> {
   const fallback = isSupabaseConfigured ? "/login" : "/preview";
   const user = await getCurrentUser();
   if (!user) redirect(fallback);
+  if (!user.is_active) redirect("/bloqueado");
   if (user.role !== role) redirect(fallback);
   return user;
 }
