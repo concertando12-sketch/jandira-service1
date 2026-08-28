@@ -142,7 +142,8 @@ export function ProfileForm({
           placeholder="(11) 90000-0000"
         />
         <p className="mt-1 text-xs text-muted">
-          É pra esse número que o botão &quot;Falar no WhatsApp&quot; do seu perfil vai levar.
+          Contato de referência no seu cadastro (não aparece publicamente — dúvidas de cliente
+          e prestador vão pelo suporte).
         </p>
       </div>
 

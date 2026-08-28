@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MessageCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ReviewForm } from "@/components/provider/review-form";
@@ -25,19 +24,11 @@ export function RequestDetailActions({
   requestId,
   status,
   providerId,
-  providerName,
-  providerWhatsapp,
-  requestedDate,
-  requestedTime,
   existingReview,
 }: {
   requestId: string;
   status: RequestStatus;
   providerId: string;
-  providerName: string;
-  providerWhatsapp: string | null;
-  requestedDate: string | null;
-  requestedTime: string | null;
   existingReview: { rating: number; comment: string | null } | null;
 }) {
   const router = useRouter();
@@ -66,19 +57,7 @@ export function RequestDetailActions({
     });
   }
 
-  const dateLabel = requestedDate
-    ? new Date(`${requestedDate}T00:00:00`).toLocaleDateString("pt-BR")
-    : null;
-  const whatsappHref = providerWhatsapp
-    ? `https://wa.me/55${providerWhatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(
-        `Olá, ${providerName}! Sou cliente do Jandira Service e fiz uma solicitação${
-          dateLabel ? ` para o dia ${dateLabel}` : ""
-        }${requestedTime ? ` às ${requestedTime.slice(0, 5)}` : ""}. Gostaria de combinar os detalhes do serviço.`,
-      )}`
-    : null;
-
   const canCancel = status === "PENDING" || status === "ACCEPTED" || status === "SCHEDULED";
-  const showWhatsapp = status === "SCHEDULED" || status === "IN_PROGRESS" || status === "COMPLETED";
 
   return (
     <div className="mt-4 flex flex-col gap-3">
@@ -88,18 +67,6 @@ export function RequestDetailActions({
         <Button type="button" disabled={pending} onClick={handleConfirm} className="w-full">
           Confirmar serviço
         </Button>
-      )}
-
-      {showWhatsapp && whatsappHref && (
-        <Link
-          href={whatsappHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-brand-foreground"
-        >
-          <MessageCircle className="h-4 w-4" />
-          Falar com {providerName} no WhatsApp
-        </Link>
       )}
 
       {status === "DECLINED" && (

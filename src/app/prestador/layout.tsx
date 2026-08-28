@@ -42,6 +42,7 @@ export default async function PrestadorLayout({ children }: { children: React.Re
       notificationsHref="/prestador/notificacoes"
       unreadCount={unreadCount ?? 0}
       viewSwitcher={user.role === "ADMIN" ? "PROVIDER" : undefined}
+      showSupportWhatsApp
     >
       {children}
     </DashboardShell>

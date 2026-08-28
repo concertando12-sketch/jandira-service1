@@ -3,10 +3,35 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, LogOut, Bell, ChevronDown, Check } from "lucide-react";
+import { Menu, X, LogOut, Bell, ChevronDown, Check, MessageCircle } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 import { signOutAction } from "@/lib/actions/auth-actions";
+import { buildWhatsAppLink } from "@/lib/whatsapp";
+import { SUPPORT_WHATSAPP_PHONE } from "@/lib/constants";
+
+// Suporte único por WhatsApp (dono da plataforma) — substitui o antigo
+// "falar no WhatsApp" por prestador. Mesmo botão pra cliente e
+// prestador, qualquer dúvida.
+const SUPPORT_WHATSAPP_LINK = buildWhatsAppLink(
+  SUPPORT_WHATSAPP_PHONE,
+  "Olá! Preciso de ajuda com o Jandira Service.",
+);
+
+function SupportWhatsAppLink() {
+  if (!SUPPORT_WHATSAPP_LINK) return null;
+  return (
+    <Link
+      href={SUPPORT_WHATSAPP_LINK}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mb-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
+    >
+      <MessageCircle className="h-4.5 w-4.5" strokeWidth={2} />
+      Fale conosco
+    </Link>
+  );
+}
 
 // Visível só pra quem realmente é ADMIN (ver requireRole) — deixa
 // navegar pelas telas de cliente/prestador/admin com a mesma conta,
@@ -73,6 +98,7 @@ export function DashboardShell({
   notificationsHref,
   unreadCount = 0,
   viewSwitcher,
+  showSupportWhatsApp = false,
   children,
 }: {
   navItems: NavItem[];
@@ -83,6 +109,8 @@ export function DashboardShell({
   unreadCount?: number;
   // Só presente quando quem está logado é ADMIN — ver requireRole.
   viewSwitcher?: "CLIENT" | "PROVIDER" | "ADMIN";
+  // Botão único de suporte via WhatsApp — cliente e prestador, não admin.
+  showSupportWhatsApp?: boolean;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -145,6 +173,7 @@ export function DashboardShell({
             <p className="truncate text-sm font-semibold text-foreground">{userName}</p>
             <p className="text-xs text-muted">{roleLabel}</p>
           </div>
+          {showSupportWhatsApp && <SupportWhatsAppLink />}
           <form action={signOutAction}>
             <button
               type="submit"
@@ -171,6 +200,7 @@ export function DashboardShell({
             {viewSwitcher && <ViewSwitcher currentView={viewSwitcher} />}
             {nav}
             <div className="mt-auto px-3 pt-4">
+              {showSupportWhatsApp && <SupportWhatsAppLink />}
               <form action={signOutAction}>
                 <button
                   type="submit"

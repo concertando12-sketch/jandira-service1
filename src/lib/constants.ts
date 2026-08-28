@@ -5,6 +5,11 @@ export const APP_CITY = process.env.NEXT_PUBLIC_APP_CITY ?? "Jandira";
 export const APP_STATE = process.env.NEXT_PUBLIC_APP_STATE ?? "SP";
 export const APP_COUNTRY = process.env.NEXT_PUBLIC_APP_COUNTRY ?? "BR";
 
+// Suporte único por WhatsApp (dono da plataforma) — substitui o antigo
+// "falar no WhatsApp" por prestador. Cliente e prestador usam o mesmo
+// número pra qualquer dúvida.
+export const SUPPORT_WHATSAPP_PHONE = "+55 11 98514-9222";
+
 export const ROLE_LABELS = {
   CLIENT: "Cliente",
   PROVIDER: "Prestador",

@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { CheckCircle2, MapPin, MessageCircle, ShieldCheck } from "lucide-react";
+import { CheckCircle2, MapPin, ShieldCheck } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Card, Badge } from "@/components/ui/card";
@@ -7,7 +6,6 @@ import { LinkButton } from "@/components/ui/button";
 import { StarRating } from "@/components/ui/star-rating";
 import { FavoriteButton } from "@/components/provider/favorite-button";
 import { ReportProviderButton } from "@/components/provider/report-provider-button";
-import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { APP_CITY, APP_STATE } from "@/lib/constants";
 
 export default async function PrestadorPublicoPage({
@@ -22,7 +20,7 @@ export default async function PrestadorPublicoPage({
   const { data: provider } = await supabase
     .from("provider_profiles")
     .select(
-      `id, user_id, professional_name, description, profile_photo, whatsapp, price_from, price_to, availability,
+      `id, user_id, professional_name, description, profile_photo, price_from, price_to, availability,
        is_verified, is_active, status, rating_avg, rating_count,
        provider_services(services(id, name, slug, categories(name))),
        provider_regions(regions(id, name)),
@@ -66,11 +64,6 @@ export default async function PrestadorPublicoPage({
     .map((pr) => pr.regions)
     .filter((r): r is NonNullable<typeof r> => Boolean(r));
   const homeRegionName = provider.users?.user_addresses?.regions?.name ?? null;
-
-  const whatsappLink = buildWhatsAppLink(
-    provider.whatsapp,
-    `Olá, ${provider.professional_name}! Encontrei seu perfil no Jandira Service e gostaria de solicitar um orçamento.`,
-  );
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -182,21 +175,10 @@ export default async function PrestadorPublicoPage({
         )}
       </Card>
 
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-        <LinkButton href={`/cliente/prestador/${provider.id}/solicitar`} className="flex-1 justify-center">
+      <div className="mt-6">
+        <LinkButton href={`/cliente/prestador/${provider.id}/solicitar`} className="w-full justify-center">
           Solicitar serviço
         </LinkButton>
-        {whatsappLink && (
-          <Link
-            href={whatsappLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border px-5 py-3 text-sm font-semibold text-foreground transition-colors hover:border-brand/50"
-          >
-            <MessageCircle className="h-4 w-4" />
-            Falar no WhatsApp
-          </Link>
-        )}
       </div>
     </div>
   );

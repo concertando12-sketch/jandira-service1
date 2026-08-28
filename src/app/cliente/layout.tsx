@@ -42,6 +42,7 @@ export default async function ClienteLayout({ children }: { children: React.Reac
       notificationsHref="/cliente/notificacoes"
       unreadCount={unreadCount ?? 0}
       viewSwitcher={user.role === "ADMIN" ? "CLIENT" : undefined}
+      showSupportWhatsApp
     >
       {children}
     </DashboardShell>

@@ -30,7 +30,7 @@ export default async function SolicitacaoDetalhePage({
       `id, status, description, street, number, complement, requested_date, requested_time,
        provider_price, provider_response, cancel_reason, created_at,
        services(name),
-       provider_profiles(id, professional_name, whatsapp),
+       provider_profiles(id, professional_name),
        regions(name),
        reviews(rating, comment)`,
     )
@@ -128,10 +128,6 @@ export default async function SolicitacaoDetalhePage({
           requestId={request.id}
           status={status}
           providerId={request.provider_profiles.id}
-          providerName={request.provider_profiles.professional_name}
-          providerWhatsapp={request.provider_profiles.whatsapp}
-          requestedDate={request.requested_date}
-          requestedTime={request.requested_time}
           existingReview={request.reviews}
         />
       )}
