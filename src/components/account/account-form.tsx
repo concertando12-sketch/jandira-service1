@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { PhotoUploadField } from "./photo-upload-field";
 import { updateAccountAction } from "@/lib/actions/account-actions";
 
 export function AccountForm({
@@ -10,11 +11,18 @@ export function AccountForm({
   email,
   initialName,
   initialPhone,
+  initialPhoto,
+  showPhoto = false,
 }: {
   path: string;
   email: string;
   initialName: string;
   initialPhone: string | null;
+  initialPhoto?: string | null;
+  // Prestador já tem foto própria em /prestador/perfil
+  // (provider_profiles.profile_photo, pública) — não duplica aqui.
+  // Cliente não tem outro lugar pra isso, então mostra.
+  showPhoto?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(null);
@@ -28,6 +36,10 @@ export function AccountForm({
 
   return (
     <form action={handleSubmit} className="flex max-w-md flex-col gap-4">
+      {showPhoto && (
+        <PhotoUploadField initialPhoto={initialPhoto ?? null} fallbackLetter={initialName.charAt(0)} />
+      )}
+
       <div>
         <Label htmlFor="name">Nome completo</Label>
         <Input id="name" name="name" defaultValue={initialName} required />

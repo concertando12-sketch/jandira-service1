@@ -22,7 +22,7 @@ export default async function PrestadorSolicitacoesPage() {
         .select(
           `id, status, description, street, number, complement, requested_date, requested_time, provider_price,
            services(name),
-           users(name),
+           users(name, avatar_url),
            regions(name)`,
         )
         .eq("provider_id", profile.id)
@@ -34,6 +34,7 @@ export default async function PrestadorSolicitacoesPage() {
     status: r.status as RequestStatus,
     serviceName: r.services?.name ?? "Serviço",
     clientName: r.users?.name || "Cliente",
+    clientPhoto: r.users?.avatar_url ?? null,
     regionName: r.regions?.name ?? null,
     street: r.street,
     number: r.number,

@@ -15,6 +15,8 @@ export default async function ClientePerfilPage() {
           email={user.email}
           initialName={user.name}
           initialPhone={user.phone}
+          initialPhoto={user.avatar_url}
+          showPhoto
         />
       </Card>
     </div>

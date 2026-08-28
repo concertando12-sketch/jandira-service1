@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Card, Badge } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ProviderAvatar } from "@/components/provider/provider-avatar";
 import {
   acceptServiceRequestAction,
   completeServiceRequestAction,
@@ -32,6 +33,7 @@ export interface ProviderRequestCardData {
   status: RequestStatus;
   serviceName: string;
   clientName: string;
+  clientPhoto: string | null;
   regionName: string | null;
   street: string | null;
   number: string | null;
@@ -94,9 +96,12 @@ export function ProviderRequestCard({ data }: { data: ProviderRequestCardData })
   return (
     <Card className="flex flex-col gap-2">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-semibold text-foreground">{data.serviceName}</p>
-          <p className="text-sm text-muted">👤 {data.clientName}</p>
+        <div className="flex items-center gap-3">
+          <ProviderAvatar photoUrl={data.clientPhoto} name={data.clientName} size="md" />
+          <div>
+            <p className="font-semibold text-foreground">{data.serviceName}</p>
+            <p className="text-sm text-muted">👤 {data.clientName}</p>
+          </div>
         </div>
         <Badge variant={STATUS_VARIANT[data.status]}>{REQUEST_STATUS_LABELS[data.status]}</Badge>
       </div>
