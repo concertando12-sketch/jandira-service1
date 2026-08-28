@@ -60,6 +60,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       roleLabel={ROLE_LABELS.ADMIN}
       userName={user.name}
       previewMode={!isSupabaseConfigured}
+      viewSwitcher="ADMIN"
     >
       {children}
     </DashboardShell>

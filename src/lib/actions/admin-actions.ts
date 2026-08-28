@@ -27,21 +27,31 @@ async function requireAdmin() {
 // ---------------------------------------------------------------------
 // Categorias
 // ---------------------------------------------------------------------
-export async function createCategoryAction(formData: FormData): Promise<ActionResult> {
+// categoryId vem preenchido quando cria com sucesso — usado pelo "+
+// nova categoria" embutido no formulário de criar serviço, pra já
+// selecionar a categoria recém-criada sem precisar recarregar a tela.
+export interface CreateCategoryResult extends ActionResult {
+  categoryId?: string;
+}
+
+export async function createCategoryAction(formData: FormData): Promise<CreateCategoryResult> {
   try {
     const supabase = await requireAdminClient();
     const name = String(formData.get("name") ?? "").trim();
     const description = String(formData.get("description") ?? "").trim();
     if (!name) return { ok: false, message: "Informe o nome da categoria." };
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("categories")
-      .insert({ name, slug: slugify(name), description: description || null });
+      .insert({ name, slug: slugify(name), description: description || null })
+      .select("id")
+      .single();
 
     if (error) return { ok: false, message: error.message };
     revalidatePath("/admin/categorias");
+    revalidatePath("/admin/servicos");
     revalidatePath("/cliente/categorias");
-    return { ok: true, message: `Categoria "${name}" criada.` };
+    return { ok: true, message: `Categoria "${name}" criada.`, categoryId: data.id };
   } catch (e) {
     return { ok: false, message: (e as Error).message };
   }

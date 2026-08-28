@@ -40,6 +40,7 @@ export default async function ClienteLayout({ children }: { children: React.Reac
       previewMode={!isSupabaseConfigured}
       notificationsHref="/cliente/notificacoes"
       unreadCount={unreadCount ?? 0}
+      viewSwitcher={user.role === "ADMIN" ? "CLIENT" : undefined}
     >
       {children}
     </DashboardShell>

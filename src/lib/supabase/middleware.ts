@@ -99,7 +99,9 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith(prefix),
   );
 
-  if (!role || (match && role !== match.role)) {
+  // ADMIN pode navegar em /cliente e /prestador com a própria conta
+  // (ver requireRole, em src/lib/auth.ts, pro racional completo).
+  if (!role || (match && role !== match.role && role !== "ADMIN")) {
     const url = request.nextUrl.clone();
     url.pathname = role ? ROLE_HOME[role] : "/login";
     return NextResponse.redirect(url);

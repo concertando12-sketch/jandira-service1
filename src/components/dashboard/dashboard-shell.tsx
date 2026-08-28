@@ -3,10 +3,55 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, LogOut, Bell } from "lucide-react";
+import { Menu, X, LogOut, Bell, ChevronDown, Check } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 import { signOutAction } from "@/lib/actions/auth-actions";
+
+// Visível só pra quem realmente é ADMIN (ver requireRole) — deixa
+// navegar pelas telas de cliente/prestador/admin com a mesma conta,
+// pra ver a experiência de cada papel sem precisar de 3 logins.
+const VIEW_OPTIONS = [
+  { view: "CLIENT" as const, label: "Cliente", href: "/cliente/dashboard" },
+  { view: "PROVIDER" as const, label: "Prestador", href: "/prestador/dashboard" },
+  { view: "ADMIN" as const, label: "Admin", href: "/admin/dashboard" },
+];
+
+function ViewSwitcher({ currentView }: { currentView: "CLIENT" | "PROVIDER" | "ADMIN" }) {
+  const [open, setOpen] = useState(false);
+  const current = VIEW_OPTIONS.find((v) => v.view === currentView);
+
+  return (
+    <div className="relative mb-4 px-3">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between rounded-xl border border-border bg-surface-2 px-3 py-2 text-xs font-semibold text-foreground"
+      >
+        Vendo como: {current?.label ?? currentView}
+        <ChevronDown className={cn("h-3.5 w-3.5 text-muted transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="absolute left-3 right-3 top-full z-50 mt-1 overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
+          {VIEW_OPTIONS.map((opt) => (
+            <Link
+              key={opt.view}
+              href={opt.href}
+              onClick={() => setOpen(false)}
+              className={cn(
+                "flex items-center justify-between px-3 py-2 text-sm hover:bg-surface-2",
+                opt.view === currentView ? "text-brand" : "text-foreground",
+              )}
+            >
+              {opt.label}
+              {opt.view === currentView && <Check className="h-3.5 w-3.5" />}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export interface NavItem {
   href: string;
@@ -27,6 +72,7 @@ export function DashboardShell({
   previewMode = false,
   notificationsHref,
   unreadCount = 0,
+  viewSwitcher,
   children,
 }: {
   navItems: NavItem[];
@@ -35,6 +81,8 @@ export function DashboardShell({
   previewMode?: boolean;
   notificationsHref?: string;
   unreadCount?: number;
+  // Só presente quando quem está logado é ADMIN — ver requireRole.
+  viewSwitcher?: "CLIENT" | "PROVIDER" | "ADMIN";
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -90,6 +138,7 @@ export function DashboardShell({
         <Link href="/" className="mb-6 px-5">
           <Logo subtitle={false} />
         </Link>
+        {viewSwitcher && <ViewSwitcher currentView={viewSwitcher} />}
         {nav}
         <div className="mt-auto px-3 pt-4">
           <div className="mb-2 rounded-xl bg-surface-2 px-3 py-2.5">
@@ -119,6 +168,7 @@ export function DashboardShell({
                 <X className="h-5 w-5 text-muted" />
               </button>
             </div>
+            {viewSwitcher && <ViewSwitcher currentView={viewSwitcher} />}
             {nav}
             <div className="mt-auto px-3 pt-4">
               <form action={signOutAction}>

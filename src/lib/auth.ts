@@ -42,11 +42,19 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 // Usa em Server Components de página quando a rota exige um role
 // específico (a defesa "de verdade" é o middleware + RLS; isto é só
 // uma segunda checagem antes de renderizar).
+//
+// ADMIN sempre passa, mesmo pedindo CLIENT/PROVIDER — ele pode navegar
+// pelas telas de cliente/prestador com a própria conta pra ver a
+// experiência de cada papel (item pedido pelo dono da plataforma). Não
+// é uma brecha de segurança: quem já é admin já tem acesso amplo via
+// RLS; isso só libera as ROTAS. Ações que exigem role=CLIENT/PROVIDER
+// de verdade (ex: criar solicitação, criar provider_profile) continuam
+// bloqueadas pelas policies do banco, que checam o role real.
 export async function requireRole(role: UserRole): Promise<CurrentUser> {
   const fallback = isSupabaseConfigured ? "/login" : "/preview";
   const user = await getCurrentUser();
   if (!user) redirect(fallback);
   if (!user.is_active) redirect("/bloqueado");
-  if (user.role !== role) redirect(fallback);
+  if (user.role !== role && user.role !== "ADMIN") redirect(fallback);
   return user;
 }
