@@ -1,26 +1,47 @@
 @import "tailwindcss";
 
+/*
+ * Jendira Service — identidade visual
+ * Preto + amarelo, minimalista. Inspirado na logo (círculo, "JS",
+ * casinha). Tema fixo escuro — não segue prefers-color-scheme, porque a
+ * marca em si é preta.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0a0a;
+  --surface: #141414;
+  --surface-2: #1c1c1c;
+  --border: #2a2a2a;
+  --foreground: #f5f5f5;
+  --muted: #a3a3a3;
+  --brand: #f2b705;
+  --brand-strong: #ffcc1a;
+  --brand-foreground: #0a0a0a;
+  --danger: #ef4444;
+  --success: #22c55e;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+::selection {
+  background: var(--brand);
+  color: var(--brand-foreground);
 }

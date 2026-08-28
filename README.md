@@ -1,36 +1,104 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Jendira Service
 
-## Getting Started
+Marketplace regional de serviços — **Jandira/SP**. Conecta clientes que
+precisam de um serviço a prestadores que atendem a região. Pensado para
+crescer para outras cidades depois, mas o MVP é 100% focado em Jandira.
 
-First, run the development server:
+Stack: **Next.js (App Router) + TypeScript + Tailwind CSS + Supabase**
+(Auth, Postgres, Storage). Sem Google Maps por enquanto — a localização é
+resolvida cruzando bairros cadastrados no banco (lat/lng fixos) com a
+fórmula de distância Haversine, calculada no próprio Postgres.
+
+## Status — Fase 1 (autenticação, roles, estrutura)
+
+- ✅ Landing "Sou cliente / Sou prestador"
+- ✅ Cadastro, login, recuperar senha, redefinir senha
+- ✅ Roles `CLIENT` / `PROVIDER` / `ADMIN` com rotas protegidas (middleware + RLS)
+- ✅ Dashboards iniciais dos três perfis, com dados reais do Supabase
+- ✅ Painel admin: categorias, serviços (profissões) e bairros 100% cadastráveis
+  sem mexer em código
+- ✅ Schema completo do banco + RLS + motor de busca por região (`search_providers`)
+- ⏳ Busca por bairro, mapa, solicitação de serviço, avaliações → próximas fases
+  (ver `PROJETO_SPEC.md`)
+
+## 1. Configurar o Supabase
+
+1. Crie um projeto grátis em [app.supabase.com](https://app.supabase.com)
+2. Vá em **SQL Editor**, cole o conteúdo de [`supabase/schema.sql`](supabase/schema.sql) e rode
+3. Cole o conteúdo de [`supabase/seed.sql`](supabase/seed.sql) e rode (cidade Jandira, bairros, categorias e serviços)
+4. Vá em **Project Settings → API** e copie a `Project URL` e a `anon public key`
+
+## 2. Configurar o projeto local
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Preencha `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` no
+`.env.local` com os valores do passo anterior.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Abra [http://localhost:3000](http://localhost:3000).
 
-## Learn More
+## 3. (Opcional) Dados demo
 
-To learn more about Next.js, take a look at the following resources:
+Para testar o fluxo com prestadores fictícios de Jandira (item 48 da
+spec: Ana Souza/Babá, Carlos Oliveira/Eletricista, Maria Santos/Diarista,
+João Pereira/Encanador):
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Em **Project Settings → API**, copie a `service_role key` e cole em
+   `SUPABASE_SERVICE_ROLE_KEY` no `.env.local` (nunca exponha essa chave no navegador)
+2. Rode:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run seed:demo
+```
 
-## Deploy on Vercel
+Login de qualquer conta demo: senha `Demo123456!`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Primeiro acesso como admin
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Não existe cadastro de admin pelo app (por segurança — ver `supabase/schema.sql`,
+função `handle_new_user`). Para criar o primeiro admin:
+
+1. Cadastre-se normalmente pelo app como cliente ou prestador
+2. No SQL Editor do Supabase, rode:
+
+```sql
+update public.users set role = 'ADMIN' where email = 'seu-email@exemplo.com';
+```
+
+## Estrutura
+
+```
+src/
+  app/
+    (landing, login, cadastro, recuperar-senha, redefinir-senha, auth/callback)
+    cliente/   → dashboard, categorias, buscar, solicitacoes, favoritos, perfil, prestador/[id]
+    prestador/ → dashboard, solicitacoes, servicos, perfil, regiao, configuracoes
+    admin/     → dashboard, clientes, prestadores, categorias, servicos, solicitacoes, avaliacoes, regioes, configuracoes
+  components/  → ui/ (design system), brand/ (logo), dashboard/, admin/, account/, auth/
+  lib/
+    supabase/  → clients (browser, server, middleware) + tipos do banco
+    actions/   → Server Actions (conta, admin)
+    auth.ts    → getCurrentUser / requireRole
+    constants.ts → APP_CITY/STATE/COUNTRY, labels
+supabase/
+  schema.sql   → tabelas, RLS, triggers, função de busca por região
+  seed.sql     → cidade, bairros, categorias, serviços (dados de referência)
+scripts/
+  seed-demo.ts → cria contas + perfis de prestadores fictícios
+```
+
+## Identidade visual
+
+Preto + amarelo, minimalista — inspirado na logo enviada (círculo, "JS",
+casinha). A marca em SVG está em `src/components/brand/logo.tsx`; troque
+pelo arquivo original assim que ele estiver disponível como asset no
+projeto.
+
+Veja `PROJETO_SPEC.md` para as decisões de arquitetura tomadas na Fase 1.
