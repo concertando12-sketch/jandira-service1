@@ -1,18 +1,43 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label } from "@/components/ui/input";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
+// Recuperação de senha por código (6 dígitos, mandado por e-mail) —
+// mais simples que clicar num link: a pessoa digita o código aqui
+// mesmo e já libera pra trocar a senha em /redefinir-senha. Usa
+// verifyOtp com o mesmo token que o resetPasswordForEmail gera; o
+// e-mail (template "Reset Password" no Supabase) precisa mostrar
+// {{ .Token }}, não só o link.
 export function RecuperarSenhaForm() {
+  const router = useRouter();
+  const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [resent, setResent] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function sendCode() {
+    setLoading(true);
+    setError(null);
+    const supabase = createClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/redefinir-senha`,
+    });
+    setLoading(false);
+    if (error) {
+      setError(error.message);
+      return false;
+    }
+    return true;
+  }
+
+  async function handleEmailSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
@@ -21,31 +46,74 @@ export function RecuperarSenhaForm() {
       return;
     }
 
+    const ok = await sendCode();
+    if (ok) setStep("code");
+  }
+
+  async function handleResend() {
+    setResent(false);
+    const ok = await sendCode();
+    if (ok) setResent(true);
+  }
+
+  async function handleCodeSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
     setLoading(true);
+
     const supabase = createClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/redefinir-senha`,
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token: code.trim(),
+      type: "recovery",
     });
     setLoading(false);
 
     if (error) {
-      setError(error.message);
+      setError("Código inválido ou expirado. Confira e tente de novo, ou peça um novo código.");
       return;
     }
-    setSent(true);
+    router.push("/redefinir-senha");
   }
 
-  if (sent) {
+  if (step === "code") {
     return (
-      <p className="text-center text-sm text-foreground">
-        Se existir uma conta com o e-mail <strong>{email}</strong>, enviamos um link de
-        redefinição de senha.
-      </p>
+      <form onSubmit={handleCodeSubmit} className="flex flex-col gap-4">
+        <p className="text-center text-sm text-muted">
+          Mandamos um código para <strong className="text-foreground">{email}</strong>. Digite
+          abaixo (também dá pra clicar no link do e-mail, se preferir).
+        </p>
+        <div>
+          <Label htmlFor="code">Código</Label>
+          <Input
+            id="code"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            required
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="000000"
+          />
+        </div>
+        <FieldError>{error}</FieldError>
+        {resent && <p className="text-center text-sm text-success">Novo código enviado.</p>}
+        <Button type="submit" disabled={loading} className="w-full">
+          {loading ? "Confirmando…" : "Confirmar código"}
+        </Button>
+        <button
+          type="button"
+          onClick={handleResend}
+          disabled={loading}
+          className="text-center text-sm text-brand hover:underline"
+        >
+          Reenviar código
+        </button>
+      </form>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <form onSubmit={handleEmailSubmit} className="flex flex-col gap-4">
       <div>
         <Label htmlFor="email">E-mail</Label>
         <Input
@@ -59,7 +127,7 @@ export function RecuperarSenhaForm() {
       </div>
       <FieldError>{error}</FieldError>
       <Button type="submit" disabled={loading} className="w-full">
-        {loading ? "Enviando…" : "Enviar link"}
+        {loading ? "Enviando…" : "Enviar código"}
       </Button>
     </form>
   );

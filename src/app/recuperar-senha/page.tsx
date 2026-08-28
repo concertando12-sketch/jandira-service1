@@ -6,7 +6,7 @@ export default function RecuperarSenhaPage() {
   return (
     <AuthShell
       title="Recuperar senha"
-      subtitle="Enviaremos um link de redefinição para seu e-mail"
+      subtitle="Enviaremos um código de verificação para seu e-mail"
       footer={
         <>
           Lembrou a senha?{" "}
