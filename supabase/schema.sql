@@ -1020,3 +1020,30 @@ grant execute on function public.search_providers(text, uuid, int, int) to anon,
 grant execute on function public.notify(uuid, text, text, text, uuid) to authenticated;
 grant execute on function public.approve_region_suggestion(uuid) to authenticated;
 grant execute on function public.reject_region_suggestion(uuid) to authenticated;
+
+-- =====================================================================
+-- STORAGE — foto de perfil do prestador (Fase 7)
+-- Bucket público (a foto aparece no perfil público do prestador —
+-- item 9/17 da Fase 1). Cada prestador só escreve dentro da própria
+-- pasta (prefixo = auth.uid()), igual ao padrão recomendado do
+-- Supabase Storage.
+-- =====================================================================
+insert into storage.buckets (id, name, public)
+values ('provider-photos', 'provider-photos', true)
+on conflict (id) do nothing;
+
+drop policy if exists "provider_photos_public_read" on storage.objects;
+create policy "provider_photos_public_read" on storage.objects for select
+  using (bucket_id = 'provider-photos');
+
+drop policy if exists "provider_photos_own_write" on storage.objects;
+create policy "provider_photos_own_write" on storage.objects for insert
+  with check (bucket_id = 'provider-photos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "provider_photos_own_update" on storage.objects;
+create policy "provider_photos_own_update" on storage.objects for update
+  using (bucket_id = 'provider-photos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "provider_photos_own_delete" on storage.objects;
+create policy "provider_photos_own_delete" on storage.objects for delete
+  using (bucket_id = 'provider-photos' and (storage.foldername(name))[1] = auth.uid()::text);

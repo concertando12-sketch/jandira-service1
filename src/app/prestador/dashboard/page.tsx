@@ -20,34 +20,45 @@ export default async function PrestadorDashboardPage() {
   let scheduledRequests = 0;
   let completedRequests = 0;
   let regionsCount = 0;
+  let servicesCount = 0;
 
   if (profile) {
-    const [{ count: newCount }, { count: scheduledCount }, { count: completedCount }, { count: regionCount }] =
-      await Promise.all([
-        supabase
-          .from("service_requests")
-          .select("id", { count: "exact", head: true })
-          .eq("provider_id", profile.id)
-          .eq("status", "PENDING"),
-        supabase
-          .from("service_requests")
-          .select("id", { count: "exact", head: true })
-          .eq("provider_id", profile.id)
-          .eq("status", "SCHEDULED"),
-        supabase
-          .from("service_requests")
-          .select("id", { count: "exact", head: true })
-          .eq("provider_id", profile.id)
-          .eq("status", "COMPLETED"),
-        supabase
-          .from("provider_regions")
-          .select("id", { count: "exact", head: true })
-          .eq("provider_id", profile.id),
-      ]);
+    const [
+      { count: newCount },
+      { count: scheduledCount },
+      { count: completedCount },
+      { count: regionCount },
+      { count: serviceCount },
+    ] = await Promise.all([
+      supabase
+        .from("service_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("provider_id", profile.id)
+        .eq("status", "PENDING"),
+      supabase
+        .from("service_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("provider_id", profile.id)
+        .eq("status", "SCHEDULED"),
+      supabase
+        .from("service_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("provider_id", profile.id)
+        .eq("status", "COMPLETED"),
+      supabase
+        .from("provider_regions")
+        .select("id", { count: "exact", head: true })
+        .eq("provider_id", profile.id),
+      supabase
+        .from("provider_services")
+        .select("id", { count: "exact", head: true })
+        .eq("provider_id", profile.id),
+    ]);
     newRequests = newCount ?? 0;
     scheduledRequests = scheduledCount ?? 0;
     completedRequests = completedCount ?? 0;
     regionsCount = regionCount ?? 0;
+    servicesCount = serviceCount ?? 0;
   }
 
   const firstName = user.name.split(" ")[0] || user.name;
@@ -57,8 +68,25 @@ export default async function PrestadorDashboardPage() {
       <h1 className="text-xl font-bold text-foreground sm:text-2xl">Olá, {firstName}! 👋</h1>
       <p className="mt-1 text-sm text-muted">Este é o resumo do seu negócio na Jandira Service.</p>
 
-      {regionsCount === 0 && (
+      {servicesCount === 0 && (
         <Card className="mt-6 flex flex-col items-start gap-3 border-brand/40 bg-brand/10 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <UserCircle2 className="h-8 w-8 text-brand" />
+            <div>
+              <p className="font-semibold text-foreground">Escolha seus serviços</p>
+              <p className="text-sm text-muted">
+                Sem nenhum serviço marcado, você não aparece em nenhuma busca de cliente.
+              </p>
+            </div>
+          </div>
+          <LinkButton href="/prestador/servicos" size="sm">
+            Escolher serviços
+          </LinkButton>
+        </Card>
+      )}
+
+      {regionsCount === 0 && (
+        <Card className="mt-3 flex flex-col items-start gap-3 border-brand/40 bg-brand/10 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <UserCircle2 className="h-8 w-8 text-brand" />
             <div>
@@ -130,7 +158,8 @@ export default async function PrestadorDashboardPage() {
             <p className="text-sm text-muted">
               {profile.status === "APPROVED"
                 ? "Seu perfil está homologado e pode ser encontrado por clientes."
-                : "Complete seu perfil e aguarde a homologação do admin."}
+                : "Complete seu perfil e aguarde a homologação do admin."}{" "}
+              Perfil <span className="font-semibold text-foreground">{profile.profile_completion}%</span> completo.
             </p>
           </div>
           <Link href="/prestador/perfil" className="text-sm font-semibold text-brand hover:underline">

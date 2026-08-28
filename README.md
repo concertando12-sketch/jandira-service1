@@ -83,8 +83,16 @@ Supabase de verdade.
   bairro) e estatísticas agrupadas (usuários/serviços/plataforma)
 - Busca de clientes por nome/e-mail/telefone/bairro
 
-- ⏳ Refinamentos de perfil profissional, upload de documentos do prestador →
-  próximas fases (ver `PROJETO_SPEC.md`)
+**Fase 7 — Perfil profissional do prestador** ✅
+- `/prestador/servicos`: escolhe quais profissões oferece, do catálogo cadastrado
+  pelo admin — sem isso o prestador não aparece em nenhuma busca
+- `/prestador/perfil`: foto (upload de verdade, Supabase Storage), descrição,
+  faixa de preço, disponibilidade, WhatsApp
+- `profile_completion` deixou de ser um número fixo — é calculado a partir do que
+  realmente foi preenchido
+
+- ⏳ Upload de documentos do prestador, testes ponta a ponta com Supabase real,
+  responsividade/deploy → próximas fases (ver `PROJETO_SPEC.md`)
 
 ## 1. Configurar o Supabase
 

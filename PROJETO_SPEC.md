@@ -255,6 +255,31 @@ o Supabase de verdade:
   (`user_role`) fácil de estender com mais valores no futuro sem quebrar
   nada que já existe.
 
+## Fase 7 — Perfil profissional do prestador (decisões)
+
+Essa fase fechou uma lacuna que existia desde a Fase 1: `/prestador/perfil`
+era só uma tela "em construção" — nenhum prestador real conseguia
+preencher foto, descrição, preço, disponibilidade ou WhatsApp. E ao
+abrir isso, achei um buraco ainda mais fundamental: `/prestador/servicos`
+também nunca tinha sido construído — sem ele, um prestador não tem
+como dizer quais profissões oferece, e o motor de busca (que cruza
+`service_id`) não tem o que casar. As duas foram construídas juntas.
+
+- **`profile_completion` passou a ser calculado de verdade** (não é
+  mais um número fixo do seed): 8 sinais reais — nome profissional,
+  descrição, foto, preço, disponibilidade, WhatsApp, pelo menos 1
+  serviço marcado, pelo menos 1 bairro atendido. Recalculado sempre
+  que o prestador salva o perfil ou os serviços.
+- **Foto de perfil usa Supabase Storage de verdade** (bucket
+  `provider-photos`, público pra leitura, cada prestador só escreve
+  dentro da própria pasta — `auth.uid()` como prefixo do caminho,
+  RLS em `storage.objects`). Upload acontece dentro do próprio server
+  action (Next.js Server Actions aceitam `File` via FormData), não
+  precisou de nenhum client-side extra.
+- **`/prestador/servicos` não mexe em `is_active`** — só
+  `/prestador/regiao` "publica" o prestador (decisão da Fase 3),
+  mantendo essa regra única em vez de duplicá-la em mais um lugar.
+
 ## Fases
 
 Ver spec completa enviada pelo cliente. Ordem de execução: Fase 1 → Fase 8, uma de
