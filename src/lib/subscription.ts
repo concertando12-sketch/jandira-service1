@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { buildPixQrDataUrl } from "@/lib/pix";
+import { APP_CITY } from "@/lib/constants";
 
 // Lê o histórico de assinatura de um usuário e resolve o status atual
 // — compartilhado entre /cliente/assinatura e /prestador/assinatura
@@ -15,6 +17,19 @@ export async function getSubscriptionData(userId: string, isAdmin = false) {
     .eq("id", true)
     .maybeSingle();
 
+  const amount = settings?.subscription_amount ?? 5;
+  // QR Code PIX de verdade (padrão Bacen) — gerado na hora a partir da
+  // chave/valor configurados pelo admin, nunca hardcoded. Só existe
+  // quando a chave PIX já foi cadastrada.
+  const pixQrDataUrl = settings?.pix_key
+    ? await buildPixQrDataUrl({
+        pixKey: settings.pix_key,
+        receiverName: settings.pix_receiver_name || "JANDIRA SERVICE",
+        city: APP_CITY,
+        amount,
+      })
+    : null;
+
   if (isAdmin) {
     return {
       isActive: true,
@@ -23,7 +38,8 @@ export async function getSubscriptionData(userId: string, isAdmin = false) {
       latestRejectionReason: null,
       pixKey: settings?.pix_key ?? null,
       pixReceiverName: settings?.pix_receiver_name ?? null,
-      amount: settings?.subscription_amount ?? 5,
+      pixQrDataUrl,
+      amount,
     };
   }
 
@@ -44,6 +60,7 @@ export async function getSubscriptionData(userId: string, isAdmin = false) {
     latestRejectionReason: latest?.rejection_reason ?? null,
     pixKey: settings?.pix_key ?? null,
     pixReceiverName: settings?.pix_receiver_name ?? null,
-    amount: settings?.subscription_amount ?? 5,
+    pixQrDataUrl,
+    amount,
   };
 }

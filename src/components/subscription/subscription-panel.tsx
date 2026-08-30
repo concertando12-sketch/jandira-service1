@@ -22,6 +22,7 @@ export function SubscriptionPanel({
   latestRejectionReason,
   pixKey,
   pixReceiverName,
+  pixQrDataUrl,
   amount,
 }: {
   isActive: boolean;
@@ -30,6 +31,7 @@ export function SubscriptionPanel({
   latestRejectionReason: string | null;
   pixKey: string | null;
   pixReceiverName: string | null;
+  pixQrDataUrl: string | null;
   amount: number;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -98,10 +100,25 @@ export function SubscriptionPanel({
           </div>
 
           {pixKey ? (
-            <div className="mb-4 rounded-xl border border-border bg-surface-2 p-3">
-              <p className="text-xs uppercase tracking-wide text-muted">Chave PIX</p>
-              <p className="mt-1 break-all text-sm font-semibold text-foreground">{pixKey}</p>
-              {pixReceiverName && <p className="mt-1 text-xs text-muted">Recebedor: {pixReceiverName}</p>}
+            <div className="mb-4 flex flex-col items-center gap-3 rounded-xl border border-border bg-surface-2 p-3 sm:flex-row sm:items-start">
+              {pixQrDataUrl && (
+                // eslint-disable-next-line @next/next/no-img-element -- data: URL, não vem de storage nenhum
+                <img
+                  src={pixQrDataUrl}
+                  alt="QR Code PIX"
+                  className="h-40 w-40 shrink-0 rounded-lg bg-white p-1.5"
+                />
+              )}
+              <div className="min-w-0 text-center sm:text-left">
+                <p className="text-xs uppercase tracking-wide text-muted">Chave PIX</p>
+                <p className="mt-1 break-all text-sm font-semibold text-foreground">{pixKey}</p>
+                {pixReceiverName && <p className="mt-1 text-xs text-muted">Recebedor: {pixReceiverName}</p>}
+                {pixQrDataUrl && (
+                  <p className="mt-2 text-xs text-muted">
+                    Escaneie o QR Code no app do seu banco ou copie a chave acima.
+                  </p>
+                )}
+              </div>
             </div>
           ) : (
             <p className="mb-4 text-sm text-muted">
