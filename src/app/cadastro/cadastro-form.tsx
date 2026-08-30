@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ export function CadastroForm() {
   const [cpf, setCpf] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [confirmEmailSent, setConfirmEmailSent] = useState(false);
@@ -55,6 +57,10 @@ export function CadastroForm() {
     const cpfDigits = cpf.replace(/\D/g, "");
     if (cpfDigits.length !== 11) {
       setError("Informe um CPF válido (11 dígitos).");
+      return;
+    }
+    if (!acceptedTerms) {
+      setError("Você precisa aceitar os Termos de Uso e a Política de Privacidade pra continuar.");
       return;
     }
     if (password.length < 6) {
@@ -208,9 +214,33 @@ export function CadastroForm() {
         />
       </div>
 
+      <label className="flex items-start gap-2.5 rounded-xl border border-border bg-surface-2 px-3 py-3 text-sm text-foreground">
+        <input
+          type="checkbox"
+          checked={acceptedTerms}
+          onChange={(e) => setAcceptedTerms(e.target.checked)}
+          className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--brand)]"
+        />
+        <span>
+          Li e concordo com os{" "}
+          <Link href="/termos-de-uso" target="_blank" className="font-semibold text-brand hover:underline">
+            Termos de Uso
+          </Link>{" "}
+          e a{" "}
+          <Link
+            href="/politica-de-privacidade"
+            target="_blank"
+            className="font-semibold text-brand hover:underline"
+          >
+            Política de Privacidade
+          </Link>
+          .
+        </span>
+      </label>
+
       <FieldError>{error}</FieldError>
 
-      <Button type="submit" disabled={loading} className="mt-2 w-full">
+      <Button type="submit" disabled={loading || !acceptedTerms} className="mt-2 w-full">
         {loading ? "Criando conta…" : "Criar conta"}
       </Button>
     </form>

@@ -88,9 +88,20 @@ export default function Home() {
         )}
       </main>
 
-      <footer className="flex items-center justify-center gap-2 border-t border-border px-6 py-6 text-xs text-muted">
-        <LogoMark className="h-4 w-4" />
-        Jandira Service — Soluções que facilitam sua vida
+      <footer className="flex flex-col items-center justify-center gap-2 border-t border-border px-6 py-6 text-xs text-muted">
+        <span className="flex items-center gap-2">
+          <LogoMark className="h-4 w-4" />
+          Jandira Service — Soluções que facilitam sua vida
+        </span>
+        <span className="flex items-center gap-3">
+          <Link href="/termos-de-uso" className="hover:text-brand hover:underline">
+            Termos de Uso
+          </Link>
+          <span className="text-border">·</span>
+          <Link href="/politica-de-privacidade" className="hover:text-brand hover:underline">
+            Política de Privacidade
+          </Link>
+        </span>
       </footer>
     </div>
   );
