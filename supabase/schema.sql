@@ -434,9 +434,16 @@ set search_path = public
 as $$
   -- ADMIN nunca precisa pagar a própria plataforma — sempre "em dia",
   -- pra sempre, sem depender de nenhuma linha em `subscriptions`.
-  -- CLIENT e PROVIDER seguem a regra normal (assinatura mensal real).
+  -- Período de teste grátis de lançamento: todo mundo (cliente e
+  -- prestador) fica liberado até 30/09/2026, sem precisar de nenhuma
+  -- assinatura aprovada. A partir de 01/10/2026 essa linha para de
+  -- valer sozinha (a condição vira falsa) e a regra normal passa a
+  -- exigir pagamento de verdade.
+  -- CLIENT e PROVIDER fora desses dois casos seguem a regra normal
+  -- (assinatura mensal real).
   select
     exists (select 1 from public.users where id = p_user_id and role = 'ADMIN')
+    or current_date < date '2026-10-01'
     or exists (
       select 1 from public.subscriptions
       where user_id = p_user_id and status = 'APPROVED' and period_end >= current_date

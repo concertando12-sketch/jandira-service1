@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { buildPixPayload, buildPixQrDataUrl } from "@/lib/pix";
-import { APP_CITY } from "@/lib/constants";
+import { APP_CITY, FREE_TRIAL_END_DATE } from "@/lib/constants";
 
 // Lê o histórico de assinatura de um usuário e resolve o status atual
 // — compartilhado entre /cliente/assinatura e /prestador/assinatura
@@ -32,6 +32,13 @@ export async function getSubscriptionData(userId: string, isAdmin = false) {
   const pixQrDataUrl = pixOpts ? await buildPixQrDataUrl(pixOpts) : null;
   const pixCopyPaste = pixOpts ? buildPixPayload(pixOpts) : null;
 
+  const today = new Date().toISOString().slice(0, 10);
+  // Período de teste grátis de lançamento — mesmo corte de
+  // has_active_subscription() no banco (schema.sql). Cliente e
+  // prestador ficam liberados até essa data sem precisar de nenhuma
+  // assinatura aprovada.
+  const isFreeTrial = today < FREE_TRIAL_END_DATE;
+
   if (isAdmin) {
     return {
       isActive: true,
@@ -43,6 +50,8 @@ export async function getSubscriptionData(userId: string, isAdmin = false) {
       pixQrDataUrl,
       pixCopyPaste,
       amount,
+      isFreeTrial: false,
+      freeTrialEndDate: FREE_TRIAL_END_DATE,
     };
   }
 
@@ -52,12 +61,11 @@ export async function getSubscriptionData(userId: string, isAdmin = false) {
     .eq("user_id", userId)
     .order("submitted_at", { ascending: false });
 
-  const today = new Date().toISOString().slice(0, 10);
   const activeRow = (history ?? []).find((s) => s.status === "APPROVED" && s.period_end && s.period_end >= today);
   const latest = history?.[0] ?? null;
 
   return {
-    isActive: Boolean(activeRow),
+    isActive: isFreeTrial || Boolean(activeRow),
     activeUntil: activeRow?.period_end ?? null,
     latestStatus: latest?.status ?? null,
     latestRejectionReason: latest?.rejection_reason ?? null,
@@ -66,5 +74,7 @@ export async function getSubscriptionData(userId: string, isAdmin = false) {
     pixQrDataUrl,
     pixCopyPaste,
     amount,
+    isFreeTrial,
+    freeTrialEndDate: FREE_TRIAL_END_DATE,
   };
 }

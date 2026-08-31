@@ -25,6 +25,8 @@ export function SubscriptionPanel({
   pixQrDataUrl,
   pixCopyPaste,
   amount,
+  isFreeTrial,
+  freeTrialEndDate,
 }: {
   isActive: boolean;
   activeUntil: string | null;
@@ -35,6 +37,8 @@ export function SubscriptionPanel({
   pixQrDataUrl: string | null;
   pixCopyPaste: string | null;
   amount: number;
+  isFreeTrial: boolean;
+  freeTrialEndDate: string;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
@@ -69,9 +73,15 @@ export function SubscriptionPanel({
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
             <div>
-              <p className="text-sm font-semibold text-foreground">Assinatura ativa</p>
+              <p className="text-sm font-semibold text-foreground">
+                {activeUntil || !isFreeTrial ? "Assinatura ativa" : "Período de teste grátis"}
+              </p>
               <p className="text-xs text-muted">
-                {activeUntil ? `Válida até ${formatDate(activeUntil)}.` : "Conta administrativa — sem cobrança."}
+                {activeUntil
+                  ? `Válida até ${formatDate(activeUntil)}.`
+                  : isFreeTrial
+                    ? `Grátis pra testar até ${formatDate(freeTrialEndDate)}. Depois disso, a assinatura de ${amountLabel}/mês passa a valer normalmente.`
+                    : "Conta administrativa — sem cobrança."}
               </p>
             </div>
           </div>

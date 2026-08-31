@@ -10,6 +10,13 @@ export const APP_COUNTRY = process.env.NEXT_PUBLIC_APP_COUNTRY ?? "BR";
 // número pra qualquer dúvida.
 export const SUPPORT_WHATSAPP_PHONE = "+55 11 98514-9222";
 
+// Período de teste grátis de lançamento (Fase 9) — todo mundo (cliente
+// e prestador) fica liberado sem precisar de assinatura aprovada até
+// essa data. Espelha o mesmo corte em has_active_subscription() no
+// banco (supabase/schema.sql) — mudar aqui não muda o banco sozinho,
+// os dois precisam ser atualizados juntos.
+export const FREE_TRIAL_END_DATE = "2026-10-01";
+
 export const ROLE_LABELS = {
   CLIENT: "Cliente",
   PROVIDER: "Prestador",
