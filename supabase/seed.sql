@@ -51,6 +51,113 @@ cross join (values
 where c.name = 'Jandira' and c.state = 'SP'
 on conflict (city_id, slug) do nothing;
 
+-- Lista dos 14 bairros acima era só um ponto de partida (nunca foi
+-- definitiva) e ficou bem menor que os ~80 bairros reais de Jandira —
+-- gente sugerindo bairro que já existia de verdade, sem achar. Lista
+-- abaixo pesquisada em fontes públicas (GuiaMais, mbi.com.br) — sem
+-- lat/lng por enquanto (não temos a coordenada real de cada um; a
+-- coluna é opcional e reservada pra uma fase futura com mapa).
+insert into public.regions (city_id, name, slug, is_active)
+select c.id, n.name, n.slug, true
+from public.cities c
+cross join (values
+  ('Altos de São Fernando',                   'altos-de-sao-fernando'),
+  ('Bosque de Jandira',                       'bosque-de-jandira'),
+  ('Chácaras do Peroba',                      'chacaras-do-peroba'),
+  ('Granja Alvorada',                         'granja-alvorada'),
+  ('Infant''s Garden',                        'infants-garden'),
+  ('Jardim Analândia',                        'jardim-analandia'),
+  ('Jardim Antônio Porto',                    'jardim-antonio-porto'),
+  ('Jardim Aurora',                           'jardim-aurora'),
+  ('Jardim Belmont',                          'jardim-belmont'),
+  ('Jardim Bolívia',                          'jardim-bolivia'),
+  ('Jardim Camila',                           'jardim-camila'),
+  ('Jardim Centenário',                       'jardim-centenario'),
+  ('Jardim Cristino',                         'jardim-cristino'),
+  ('Jardim das Margaridas',                   'jardim-das-margaridas'),
+  ('Jardim do Golf I',                        'jardim-do-golf-i'),
+  ('Jardim do Líbano',                        'jardim-do-libano'),
+  ('Jardim Europa',                           'jardim-europa'),
+  ('Jardim Gabriela I',                       'jardim-gabriela-i'),
+  ('Jardim Gabriela II',                      'jardim-gabriela-ii'),
+  ('Jardim Gabriela III',                     'jardim-gabriela-iii'),
+  ('Jardim Heneide',                          'jardim-heneide'),
+  ('Jardim Jandira',                          'jardim-jandira'),
+  ('Jardim Javaés',                           'jardim-javaes'),
+  ('Jardim Lindomar',                         'jardim-lindomar'),
+  ('Jardim Marília',                          'jardim-marilia'),
+  ('Jardim Mase',                             'jardim-mase'),
+  ('Jardim Nossa Senhora de Fátima',          'jardim-nossa-senhora-de-fatima'),
+  ('Jardim Novo Horizonte',                   'jardim-novo-horizonte'),
+  ('Jardim Palmeiras',                        'jardim-palmeiras'),
+  ('Jardim Patriarca',                        'jardim-patriarca'),
+  ('Jardim Rosa Emília',                      'jardim-rosa-emilia'),
+  ('Jardim Sagrado Coração',                  'jardim-sagrado-coracao'),
+  ('Jardim São João',                         'jardim-sao-joao'),
+  ('Jardim São Luiz',                         'jardim-sao-luiz'),
+  ('Jardim São Paulo',                        'jardim-sao-paulo'),
+  ('Jardim Sol Nascente',                     'jardim-sol-nascente'),
+  ('Jardim Sorocabano',                       'jardim-sorocabano'),
+  ('Jardim Stella Maris',                     'jardim-stella-maris'),
+  ('Jardim Velho Sanazar',                    'jardim-velho-sanazar'),
+  ('Lago dos Cisnes',                         'lago-dos-cisnes'),
+  ('Mirante de Jandira',                      'mirante-de-jandira'),
+  ('Nova Higienópolis',                       'nova-higienopolis'),
+  ('Núcleo Micro Industrial Presidente Wilson', 'nucleo-micro-industrial-presidente-wilson'),
+  ('Parque das Iglesias',                     'parque-das-iglesias'),
+  ('Parque dos Lagos',                        'parque-dos-lagos'),
+  ('Parque Nova Jandira',                     'parque-nova-jandira'),
+  ('Parque Santa Tereza',                     'parque-santa-tereza'),
+  ('Sítio Pedra Bonita',                      'sitio-pedra-bonita'),
+  ('Suite Quebra Nozes',                      'suite-quebra-nozes'),
+  ('Vale do Sol',                             'vale-do-sol'),
+  ('Vila Anita Costa',                        'vila-anita-costa'),
+  ('Vila Cecília',                            'vila-cecilia'),
+  ('Vila Diogo Balhesteiro',                  'vila-diogo-balhesteiro'),
+  ('Vila Dolores Paschoalin',                 'vila-dolores-paschoalin'),
+  ('Vila Ercília',                            'vila-ercilia'),
+  ('Vila Esmeralda',                          'vila-esmeralda'),
+  ('Vila Eugênia',                            'vila-eugenia'),
+  ('Vila Godinho',                            'vila-godinho'),
+  ('Vila Ipê',                                'vila-ipe'),
+  ('Vila Lucinda',                            'vila-lucinda'),
+  ('Vila Makenzi',                            'vila-makenzi'),
+  ('Vila Mercedes',                           'vila-mercedes'),
+  ('Vila Ouro Verde',                         'vila-ouro-verde'),
+  ('Vila Popi',                               'vila-popi'),
+  ('Vila Rolim',                              'vila-rolim'),
+  ('Vila Santa Rosa',                         'vila-santa-rosa'),
+  ('Vila Santo Antônio',                      'vila-santo-antonio'),
+  ('Vila São Nicolau',                        'vila-sao-nicolau')
+) as n(name, slug)
+where c.name = 'Jandira' and c.state = 'SP'
+on conflict (city_id, slug) do nothing;
+
+-- Complemento à lista acima com uma segunda lista passada pelo
+-- cliente — conferido contra as duas listas anteriores pra não
+-- duplicar (nomes iguais ou variação de grafia da mesma vila/jardim
+-- ficam de fora daqui), só o que realmente faltava.
+insert into public.regions (city_id, name, slug, is_active)
+select c.id, n.name, n.slug, true
+from public.cities c
+cross join (values
+  ('Altos de Jandira',            'altos-de-jandira'),
+  ('Beverly Hills',                'beverly-hills'),
+  ('Condomínio Nova Paulista',    'condominio-nova-paulista'),
+  ('Do Votupoca',                  'do-votupoca'),
+  ('Jardim Granja Alvorada',      'jardim-granja-alvorada'),
+  ('Jardim Hélio Cruz',           'jardim-helio-cruz'),
+  ('Parque do Lago',               'parque-do-lago'),
+  ('Polo Industrial Jandira',     'polo-industrial-jandira'),
+  ('Sítio das Pitas',             'sitio-das-pitas'),
+  ('Vila da Pedreira',             'vila-da-pedreira'),
+  ('Vila Haber',                   'vila-haber'),
+  ('Vila Morri',                   'vila-morri'),
+  ('Vila Neusa',                   'vila-neusa')
+) as n(name, slug)
+where c.name = 'Jandira' and c.state = 'SP'
+on conflict (city_id, slug) do nothing;
+
 -- ---------------------------------------------------------------------
 -- CATEGORIAS
 -- ---------------------------------------------------------------------

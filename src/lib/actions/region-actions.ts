@@ -24,9 +24,16 @@ export async function suggestRegionAction(formData: FormData): Promise<ActionRes
     .eq("state", APP_STATE)
     .maybeSingle();
 
+  // Sem cidade, a sugestão nunca vai conseguir ser aprovada depois
+  // (regions.city_id é NOT NULL) — melhor avisar na hora do que deixar
+  // a sugestão PENDING pra sempre sem explicação.
+  if (!city) {
+    return { ok: false, message: `Cidade ${APP_CITY}/${APP_STATE} não encontrada. Rode supabase/seed.sql.` };
+  }
+
   const { error } = await supabase
     .from("region_suggestions")
-    .insert({ name, city_id: city?.id ?? null, submitted_by: user.id });
+    .insert({ name, city_id: city.id, submitted_by: user.id });
 
   if (error) return { ok: false, message: error.message };
   return { ok: true, message: "Obrigado! Esse bairro foi enviado para análise." };
