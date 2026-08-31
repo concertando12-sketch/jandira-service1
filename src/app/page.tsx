@@ -77,6 +77,11 @@ export default function Home() {
             Entrar
           </Link>
         </p>
+        <p className="mt-2 text-xs text-muted">
+          <Link href="/recuperar-senha" className="hover:text-brand hover:underline">
+            Esqueceu a senha?
+          </Link>
+        </p>
 
         {!isSupabaseConfigured && (
           <Link
