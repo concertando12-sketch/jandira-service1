@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { CheckCircle2, Clock, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, Copy, XCircle } from "lucide-react";
 import { Card, Badge } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { uploadSubscriptionReceiptAction } from "@/lib/actions/subscription-actions";
@@ -23,6 +23,7 @@ export function SubscriptionPanel({
   pixKey,
   pixReceiverName,
   pixQrDataUrl,
+  pixCopyPaste,
   amount,
 }: {
   isActive: boolean;
@@ -32,11 +33,13 @@ export function SubscriptionPanel({
   pixKey: string | null;
   pixReceiverName: string | null;
   pixQrDataUrl: string | null;
+  pixCopyPaste: string | null;
   amount: number;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   function handleSubmit(formData: FormData) {
     startTransition(async () => {
@@ -44,6 +47,17 @@ export function SubscriptionPanel({
       setFeedback(result);
       if (result.ok) formRef.current?.reset();
     });
+  }
+
+  async function handleCopy() {
+    if (!pixCopyPaste) return;
+    try {
+      await navigator.clipboard.writeText(pixCopyPaste);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // clipboard indisponível (ex: contexto não-seguro) — sem feedback
+    }
   }
 
   const amountLabel = amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -113,9 +127,19 @@ export function SubscriptionPanel({
                 <p className="text-xs uppercase tracking-wide text-muted">Chave PIX</p>
                 <p className="mt-1 break-all text-sm font-semibold text-foreground">{pixKey}</p>
                 {pixReceiverName && <p className="mt-1 text-xs text-muted">Recebedor: {pixReceiverName}</p>}
+                {pixCopyPaste && (
+                  <button
+                    type="button"
+                    onClick={handleCopy}
+                    className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-brand/40 px-3 py-2 text-xs font-semibold text-brand transition-colors hover:bg-brand/10 sm:w-auto"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    {copied ? "Copiado!" : "Copiar código PIX (copia e cola)"}
+                  </button>
+                )}
                 {pixQrDataUrl && (
                   <p className="mt-2 text-xs text-muted">
-                    Escaneie o QR Code no app do seu banco ou copie a chave acima.
+                    Escaneie o QR Code, ou toque em copiar e cole no &quot;Pix Copia e Cola&quot; do seu banco.
                   </p>
                 )}
               </div>

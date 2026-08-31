@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { buildPixQrDataUrl } from "@/lib/pix";
+import { buildPixPayload, buildPixQrDataUrl } from "@/lib/pix";
 import { APP_CITY } from "@/lib/constants";
 
 // Lê o histórico de assinatura de um usuário e resolve o status atual
@@ -18,17 +18,19 @@ export async function getSubscriptionData(userId: string, isAdmin = false) {
     .maybeSingle();
 
   const amount = settings?.subscription_amount ?? 5;
-  // QR Code PIX de verdade (padrão Bacen) — gerado na hora a partir da
-  // chave/valor configurados pelo admin, nunca hardcoded. Só existe
-  // quando a chave PIX já foi cadastrada.
-  const pixQrDataUrl = settings?.pix_key
-    ? await buildPixQrDataUrl({
+  // QR Code + "PIX Copia e Cola" de verdade (padrão Bacen) — gerados na
+  // hora a partir da chave/valor configurados pelo admin, nunca
+  // hardcoded. Só existem quando a chave PIX já foi cadastrada.
+  const pixOpts = settings?.pix_key
+    ? {
         pixKey: settings.pix_key,
         receiverName: settings.pix_receiver_name || "JANDIRA SERVICE",
         city: APP_CITY,
         amount,
-      })
+      }
     : null;
+  const pixQrDataUrl = pixOpts ? await buildPixQrDataUrl(pixOpts) : null;
+  const pixCopyPaste = pixOpts ? buildPixPayload(pixOpts) : null;
 
   if (isAdmin) {
     return {
@@ -39,6 +41,7 @@ export async function getSubscriptionData(userId: string, isAdmin = false) {
       pixKey: settings?.pix_key ?? null,
       pixReceiverName: settings?.pix_receiver_name ?? null,
       pixQrDataUrl,
+      pixCopyPaste,
       amount,
     };
   }
@@ -61,6 +64,7 @@ export async function getSubscriptionData(userId: string, isAdmin = false) {
     pixKey: settings?.pix_key ?? null,
     pixReceiverName: settings?.pix_receiver_name ?? null,
     pixQrDataUrl,
+    pixCopyPaste,
     amount,
   };
 }

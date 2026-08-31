@@ -139,12 +139,6 @@ export function CadastroForm() {
             "Sua conta foi criada com sucesso. Já pode entrar."
           )}
         </p>
-        <p className="mt-2 text-sm text-muted">
-          Já tem conta?{" "}
-          <Link href="/login" className="font-semibold text-brand hover:underline">
-            Entrar
-          </Link>
-        </p>
       </div>
     );
   }
