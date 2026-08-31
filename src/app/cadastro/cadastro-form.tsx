@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label } from "@/components/ui/input";
@@ -27,7 +28,6 @@ function formatCpf(value: string) {
 }
 
 export function CadastroForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const initialRole = searchParams.get("role") === "PROVIDER" ? "PROVIDER" : "CLIENT";
 
@@ -41,7 +41,36 @@ export function CadastroForm() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [confirmEmailSent, setConfirmEmailSent] = useState(false);
+  // null = formulário; true = conta criada e já pode entrar; "pending" =
+  // falta confirmar o e-mail antes de entrar.
+  const [done, setDone] = useState<true | "pending" | null>(null);
+
+  // Cadastro mais fluído (item 2 do feedback): Enter num campo já pula
+  // pro próximo, em vez de precisar clicar. Último campo de texto
+  // (confirmar senha) só continua submetendo normal.
+  const nameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
+  const cpfRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const confirmPasswordRef = useRef<HTMLInputElement>(null);
+
+  function focusNext(e: React.KeyboardEvent<HTMLInputElement>, next: React.RefObject<HTMLInputElement | null>) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      next.current?.focus();
+    }
+  }
+
+  function handleCpfChange(value: string) {
+    const formatted = formatCpf(value);
+    setCpf(formatted);
+    // Assim que os 11 dígitos são preenchidos, já pula pra senha —
+    // não precisa nem apertar Enter.
+    if (formatted.replace(/\D/g, "").length === 11) {
+      passwordRef.current?.focus();
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -90,22 +119,31 @@ export function CadastroForm() {
       return;
     }
 
-    if (data.session) {
-      router.refresh();
-      router.push("/redirecionando");
-    } else {
-      // Projeto com confirmação de e-mail ativada: não há sessão ainda.
-      setConfirmEmailSent(true);
-    }
+    // Não entra direto no painel — mostra a confirmação e deixa a
+    // pessoa clicar em "Entrar" (item 2 do feedback).
+    setDone(data.session ? true : "pending");
   }
 
-  if (confirmEmailSent) {
+  if (done) {
     return (
-      <div className="text-center text-sm text-foreground">
-        <p className="font-semibold">Quase lá!</p>
-        <p className="mt-2 text-muted">
-          Enviamos um e-mail de confirmação para <strong>{email}</strong>. Confirme para
-          poder entrar.
+      <div className="flex flex-col items-center gap-3 py-2 text-center">
+        <CheckCircle2 className="h-10 w-10 text-success" />
+        <p className="text-base font-semibold text-foreground">Cadastro concluído!</p>
+        <p className="text-sm text-muted">
+          {done === "pending" ? (
+            <>
+              Enviamos um e-mail de confirmação para <strong className="text-foreground">{email}</strong>.
+              Confirme para poder entrar.
+            </>
+          ) : (
+            "Sua conta foi criada com sucesso. Já pode entrar."
+          )}
+        </p>
+        <p className="mt-2 text-sm text-muted">
+          Já tem conta?{" "}
+          <Link href="/login" className="font-semibold text-brand hover:underline">
+            Entrar
+          </Link>
         </p>
       </div>
     );
@@ -138,10 +176,13 @@ export function CadastroForm() {
         <Label htmlFor="name">Nome completo</Label>
         <Input
           id="name"
+          ref={nameRef}
           required
           autoComplete="name"
+          enterKeyHint="next"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => focusNext(e, emailRef)}
           placeholder="Seu nome"
         />
       </div>
@@ -150,11 +191,14 @@ export function CadastroForm() {
         <Label htmlFor="email">E-mail</Label>
         <Input
           id="email"
+          ref={emailRef}
           type="email"
           required
           autoComplete="email"
+          enterKeyHint="next"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          onKeyDown={(e) => focusNext(e, phoneRef)}
           placeholder="voce@exemplo.com"
         />
       </div>
@@ -163,11 +207,14 @@ export function CadastroForm() {
         <Label htmlFor="phone">Telefone / WhatsApp</Label>
         <Input
           id="phone"
+          ref={phoneRef}
           type="tel"
           required
           autoComplete="tel"
+          enterKeyHint="next"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
+          onKeyDown={(e) => focusNext(e, cpfRef)}
           placeholder="(11) 90000-0000"
         />
       </div>
@@ -176,11 +223,14 @@ export function CadastroForm() {
         <Label htmlFor="cpf">CPF</Label>
         <Input
           id="cpf"
+          ref={cpfRef}
           required
           inputMode="numeric"
           autoComplete="off"
+          enterKeyHint="next"
           value={cpf}
-          onChange={(e) => setCpf(formatCpf(e.target.value))}
+          onChange={(e) => handleCpfChange(e.target.value)}
+          onKeyDown={(e) => focusNext(e, passwordRef)}
           placeholder="000.000.000-00"
         />
         <p className="mt-1 text-xs text-muted">
@@ -192,11 +242,14 @@ export function CadastroForm() {
         <Label htmlFor="password">Senha</Label>
         <Input
           id="password"
+          ref={passwordRef}
           type="password"
           required
           autoComplete="new-password"
+          enterKeyHint="next"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => focusNext(e, confirmPasswordRef)}
           placeholder="Mínimo 6 caracteres"
         />
       </div>
@@ -205,9 +258,11 @@ export function CadastroForm() {
         <Label htmlFor="confirmPassword">Confirmar senha</Label>
         <Input
           id="confirmPassword"
+          ref={confirmPasswordRef}
           type="password"
           required
           autoComplete="new-password"
+          enterKeyHint="done"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           placeholder="Repita a senha"
