@@ -12,6 +12,7 @@ import {
   History,
   Settings,
   Wallet,
+  DollarSign,
 } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { requireRole } from "@/lib/auth";
@@ -51,6 +52,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       icon: <Wallet {...iconProps} />,
       badge: pendingSubscriptions ?? 0,
     },
+    { href: "/admin/financeiro", label: "Financeiro", icon: <DollarSign {...iconProps} /> },
     { href: "/admin/solicitacoes", label: "Solicitações", icon: <ClipboardList {...iconProps} /> },
     { href: "/admin/avaliacoes", label: "Avaliações", icon: <Star {...iconProps} /> },
     {
