@@ -39,7 +39,8 @@ export function SubscriptionPanel({
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copiedKey, setCopiedKey] = useState(false);
+  const [copiedFull, setCopiedFull] = useState(false);
 
   function handleSubmit(formData: FormData) {
     startTransition(async () => {
@@ -49,12 +50,11 @@ export function SubscriptionPanel({
     });
   }
 
-  async function handleCopy() {
-    if (!pixCopyPaste) return;
+  async function copyText(text: string, mark: (v: boolean) => void) {
     try {
-      await navigator.clipboard.writeText(pixCopyPaste);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
+      await navigator.clipboard.writeText(text);
+      mark(true);
+      setTimeout(() => mark(false), 2500);
     } catch {
       // clipboard indisponível (ex: contexto não-seguro) — sem feedback
     }
@@ -125,21 +125,32 @@ export function SubscriptionPanel({
               )}
               <div className="min-w-0 text-center sm:text-left">
                 <p className="text-xs uppercase tracking-wide text-muted">Chave PIX</p>
-                <p className="mt-1 break-all text-sm font-semibold text-foreground">{pixKey}</p>
+                <div className="mt-1 flex items-center justify-center gap-2 sm:justify-start">
+                  <p className="break-all text-sm font-semibold text-foreground">{pixKey}</p>
+                  <button
+                    type="button"
+                    onClick={() => pixKey && copyText(pixKey, setCopiedKey)}
+                    aria-label="Copiar chave PIX"
+                    className="shrink-0 rounded-lg border border-border p-1.5 text-muted transition-colors hover:border-brand/50 hover:text-brand"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                {copiedKey && <p className="mt-1 text-xs text-success">Chave copiada!</p>}
                 {pixReceiverName && <p className="mt-1 text-xs text-muted">Recebedor: {pixReceiverName}</p>}
                 {pixCopyPaste && (
                   <button
                     type="button"
-                    onClick={handleCopy}
+                    onClick={() => copyText(pixCopyPaste, setCopiedFull)}
                     className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-brand/40 px-3 py-2 text-xs font-semibold text-brand transition-colors hover:bg-brand/10 sm:w-auto"
                   >
                     <Copy className="h-3.5 w-3.5" />
-                    {copied ? "Copiado!" : "Copiar código PIX (copia e cola)"}
+                    {copiedFull ? "Copiado!" : "Copiar código completo (Pix Copia e Cola)"}
                   </button>
                 )}
                 {pixQrDataUrl && (
                   <p className="mt-2 text-xs text-muted">
-                    Escaneie o QR Code, ou toque em copiar e cole no &quot;Pix Copia e Cola&quot; do seu banco.
+                    Escaneie o QR Code, ou cole o código completo no &quot;Pix Copia e Cola&quot; do seu banco.
                   </p>
                 )}
               </div>
