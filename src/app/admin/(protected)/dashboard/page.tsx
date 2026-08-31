@@ -17,7 +17,7 @@ import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { StatCard } from "@/components/dashboard/stat-card";
-import { APP_CITY, APP_STATE } from "@/lib/constants";
+import { APP_CITY, APP_STATE, FREE_TRIAL_END_DATE } from "@/lib/constants";
 
 export default async function AdminDashboardPage() {
   const user = await requireRole("ADMIN");
@@ -29,6 +29,10 @@ export default async function AdminDashboardPage() {
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);
   const todayDate = new Date().toISOString().slice(0, 10);
+  // Receita real só conta a partir do fim do período de teste grátis —
+  // pagamentos anteriores foram teste/ajuste, não entram na contabilidade.
+  const trialEnd = new Date(`${FREE_TRIAL_END_DATE}T00:00:00Z`);
+  const revenueSince = trialEnd > startOfMonth ? trialEnd : startOfMonth;
 
   const [
     { count: clientsCount },
@@ -93,7 +97,7 @@ export default async function AdminDashboardPage() {
       .from("subscriptions")
       .select("amount")
       .eq("status", "APPROVED")
-      .gte("reviewed_at", startOfMonth.toISOString()),
+      .gte("reviewed_at", revenueSince.toISOString()),
   ]);
 
   const activeSubscribersCount = new Set((activeSubscriberRows ?? []).map((r) => r.user_id)).size;
