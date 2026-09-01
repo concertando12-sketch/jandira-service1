@@ -778,7 +778,12 @@ $$;
 -- vê de qual bairro o prestador é (matched_region_name/distance_km) e
 -- pede normalmente; quem decide se topa atender é o prestador, ao
 -- aceitar ou recusar a solicitação.
+--
+-- Precisa de DROP antes do CREATE porque o retorno mudou de forma
+-- (colunas novas) — o Postgres não deixa trocar isso com só REPLACE.
 -- ---------------------------------------------------------------------
+drop function if exists public.search_providers(text, uuid, int, int);
+
 create or replace function public.search_providers(
   p_service_slug text,
   p_region_id uuid,
