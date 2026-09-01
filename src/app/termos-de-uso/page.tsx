@@ -24,7 +24,7 @@ export default function TermosDeUsoPage() {
         <h2>2. Cadastro</h2>
         <ul>
           <li>Você precisa ter 18 anos ou mais pra criar uma conta.</li>
-          <li>As informações que você cadastra (nome, e-mail, telefone, CPF) precisam ser verdadeiras.</li>
+          <li>As informações que você cadastra (nome, e-mail, WhatsApp, CPF) precisam ser verdadeiras.</li>
           <li>Você é responsável por manter sua senha em sigilo e por tudo que acontecer na sua conta.</li>
           <li>Uma conta é pessoal e intransferível.</li>
         </ul>

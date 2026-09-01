@@ -14,7 +14,7 @@ export default function PoliticaDePrivacidadePage() {
         <h2>1. Quais dados coletamos</h2>
         <ul>
           <li>
-            <strong>Cadastro:</strong> nome completo, e-mail, telefone/WhatsApp, CPF e senha
+            <strong>Cadastro:</strong> nome completo, e-mail, WhatsApp, CPF e senha
             (a senha nunca fica visível pra nós — é armazenada de forma criptografada).
           </li>
           <li>
@@ -76,7 +76,7 @@ export default function PoliticaDePrivacidadePage() {
           </li>
           <li>
             Quando você contrata um prestador (ou aceita um pedido, se for prestador), seu nome
-            e telefone/WhatsApp podem ser usados pela outra parte pra combinar os detalhes do
+            e WhatsApp podem ser usados pela outra parte pra combinar os detalhes do
             serviço — essa conversa acontece fora da plataforma, diretamente pelo WhatsApp.
           </li>
         </ul>

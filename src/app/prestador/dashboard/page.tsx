@@ -1,11 +1,13 @@
 import Link from "next/link";
-import { Bell, CalendarCheck2, CheckCircle2, Gift, Star, UserCircle2, Wallet } from "lucide-react";
+import { Bell, CalendarCheck2, CheckCircle2, Gift, MessageCircle, Star, UserCircle2, Wallet } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getSubscriptionData } from "@/lib/subscription";
 import { Card } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { StatCard } from "@/components/dashboard/stat-card";
+import { SUPPORT_WHATSAPP_PHONE } from "@/lib/constants";
+import { buildWhatsAppLink } from "@/lib/whatsapp";
 
 export default async function PrestadorDashboardPage() {
   const user = await requireRole("PROVIDER");
@@ -73,6 +75,25 @@ export default async function PrestadorDashboardPage() {
     <div>
       <h1 className="text-xl font-bold text-foreground sm:text-2xl">Olá, {firstName}! 👋</h1>
       <p className="mt-1 text-sm text-muted">Este é o resumo do seu negócio na Jandira Service.</p>
+
+      {(() => {
+        const supportLink = buildWhatsAppLink(
+          SUPPORT_WHATSAPP_PHONE,
+          "Olá! Preciso de ajuda com o Jandira Service.",
+        );
+        if (!supportLink) return null;
+        return (
+          <Link
+            href={supportLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 flex items-center gap-3 rounded-xl border border-success/30 bg-success/10 px-4 py-3.5 text-sm text-foreground transition-colors hover:border-success/50"
+          >
+            <MessageCircle className="h-4.5 w-4.5 shrink-0 text-success" />
+            Ficou com alguma dúvida? Fala com a gente pelo WhatsApp
+          </Link>
+        );
+      })()}
 
       {servicesCount === 0 && (
         <Card className="mt-6 flex flex-col items-start gap-3 border-brand/40 bg-brand/10 sm:flex-row sm:items-center sm:justify-between">

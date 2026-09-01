@@ -74,7 +74,7 @@ export default async function AdminFinanceiroPage() {
                 <p className="text-xs text-muted">{r.users?.email ?? "—"}</p>
                 <p className="text-xs text-muted">
                   CPF: <span className="font-medium text-foreground">{r.users?.cpf || "não informado"}</span>
-                  {r.users?.phone && <span> · Tel: {r.users.phone}</span>}
+                  {r.users?.phone && <span> · WhatsApp: {r.users.phone}</span>}
                 </p>
                 <p className="mt-1 text-xs text-muted">
                   Pago em {formatDateTime(r.reviewed_at)}

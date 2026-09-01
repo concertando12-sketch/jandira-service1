@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { CalendarCheck2, CheckCircle2, Clock3, Gift, MapPin, Search, Wallet } from "lucide-react";
+import { CalendarCheck2, CheckCircle2, Clock3, Gift, MapPin, MessageCircle, Search, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import { getSubscriptionData } from "@/lib/subscription";
 import { Card, Badge } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
-import { APP_CITY } from "@/lib/constants";
+import { APP_CITY, SUPPORT_WHATSAPP_PHONE } from "@/lib/constants";
+import { buildWhatsAppLink } from "@/lib/whatsapp";
 
 export default async function ClienteDashboardPage() {
   const user = await requireRole("CLIENT");
@@ -80,6 +81,25 @@ export default async function ClienteDashboardPage() {
         <Search className="h-4.5 w-4.5" />
         Buscar serviço (ex: eletricista, babá, diarista...)
       </Link>
+
+      {(() => {
+        const supportLink = buildWhatsAppLink(
+          SUPPORT_WHATSAPP_PHONE,
+          "Olá! Preciso de ajuda com o Jandira Service.",
+        );
+        if (!supportLink) return null;
+        return (
+          <Link
+            href={supportLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 flex items-center gap-3 rounded-xl border border-success/30 bg-success/10 px-4 py-3.5 text-sm text-foreground transition-colors hover:border-success/50"
+          >
+            <MessageCircle className="h-4.5 w-4.5 shrink-0 text-success" />
+            Ficou com alguma dúvida? Fala com a gente pelo WhatsApp
+          </Link>
+        );
+      })()}
 
       {isFreeTrial && freeTrialEndDate && (
         <Card className="mt-6 flex flex-col items-start gap-3 border-brand/40 bg-brand/10 sm:flex-row sm:items-center sm:justify-between">

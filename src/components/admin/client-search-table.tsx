@@ -39,7 +39,7 @@ export function ClientSearchTable({ clients }: { clients: ClientRow[] }) {
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Buscar por nome, e-mail, telefone, bairro…"
+          placeholder="Buscar por nome, e-mail, WhatsApp, bairro…"
           className="pl-10"
         />
       </div>
@@ -51,7 +51,7 @@ export function ClientSearchTable({ clients }: { clients: ClientRow[] }) {
               <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
                 <th className="px-4 py-3 font-medium">Nome</th>
                 <th className="px-4 py-3 font-medium">E-mail</th>
-                <th className="px-4 py-3 font-medium">Telefone</th>
+                <th className="px-4 py-3 font-medium">WhatsApp</th>
                 <th className="px-4 py-3 font-medium">Bairro</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Cadastro</th>

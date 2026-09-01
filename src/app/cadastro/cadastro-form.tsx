@@ -198,7 +198,7 @@ export function CadastroForm() {
       </div>
 
       <div>
-        <Label htmlFor="phone">Telefone / WhatsApp</Label>
+        <Label htmlFor="phone">WhatsApp</Label>
         <Input
           id="phone"
           ref={phoneRef}

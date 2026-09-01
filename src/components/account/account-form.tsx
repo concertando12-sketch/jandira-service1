@@ -51,7 +51,7 @@ export function AccountForm({
       </div>
 
       <div>
-        <Label htmlFor="phone">Telefone / WhatsApp</Label>
+        <Label htmlFor="phone">WhatsApp</Label>
         <Input id="phone" name="phone" defaultValue={initialPhone ?? ""} placeholder="(11) 90000-0000" />
       </div>
 

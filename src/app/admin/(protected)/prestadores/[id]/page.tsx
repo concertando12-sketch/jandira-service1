@@ -107,8 +107,8 @@ export default async function AdminPrestadorDetalhePage({
         <dl className="flex flex-col gap-2 text-sm">
           <Row label="Nome" value={provider.users?.name} />
           <Row label="E-mail" value={provider.users?.email} />
-          <Row label="Telefone" value={provider.phone ?? provider.users?.phone} />
-          <Row label="WhatsApp" value={provider.whatsapp} />
+          <Row label="WhatsApp (cadastro)" value={provider.phone ?? provider.users?.phone} />
+          <Row label="WhatsApp (perfil público)" value={provider.whatsapp} />
           <Row label="Cidade" value={`${APP_CITY} - ${APP_STATE}`} />
           <Row label="Bairro" value={address?.regions?.name} />
           <Row

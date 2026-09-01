@@ -59,7 +59,7 @@ export default async function AdminClienteDetalhePage({
       <Card className="mb-4">
         <dl className="flex flex-col gap-2 text-sm">
           <Row label="E-mail" value={client.email} />
-          <Row label="Telefone" value={client.phone} />
+          <Row label="WhatsApp" value={client.phone} />
           <Row label="Cidade" value={`${APP_CITY} - ${APP_STATE}`} />
           <Row label="Bairro" value={client.user_addresses?.regions?.name} />
         </dl>
