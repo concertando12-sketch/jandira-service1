@@ -115,6 +115,11 @@ export function BuscarForm({
     });
   }, [results, minRating, verifiedOnly, maxPrice]);
 
+  // Fase 10: quando ninguém atende o bairro pesquisado, o banco já
+  // devolve prestadores de bairros próximos (is_nearby_match) — mostra
+  // um aviso explicando isso antes da lista.
+  const isNearbyFallback = (results?.length ?? 0) > 0 && results?.every((r) => r.is_nearby_match);
+
   return (
     <div>
       {initialRegionName && (
@@ -170,7 +175,9 @@ export function BuscarForm({
           <div className="mb-3 flex items-center justify-between">
             <p className="text-sm font-semibold text-foreground">
               {filteredResults && filteredResults.length > 0
-                ? `${selectedService?.name ?? "Prestadores"} em ${regionName}`
+                ? isNearbyFallback
+                  ? `${selectedService?.name ?? "Prestadores"} perto de ${regionName}`
+                  : `${selectedService?.name ?? "Prestadores"} em ${regionName}`
                 : `Nenhum prestador de ${selectedService?.name ?? "serviço"} encontrado em ${regionName} ainda`}
             </p>
             {results.length > 0 && (
@@ -184,6 +191,16 @@ export function BuscarForm({
               </button>
             )}
           </div>
+
+          {isNearbyFallback && (
+            <Card className="mb-4 border-brand/30 bg-brand/10">
+              <p className="text-xs text-foreground">
+                Ainda não tem ninguém cadastrado em <strong>{regionName}</strong> pra esse serviço. Mostrando
+                prestadores dos bairros mais próximos — ao pedir, o prestador vê seu bairro e decide se topa
+                atender.
+              </p>
+            </Card>
+          )}
 
           {showFilters && (
             <Card className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start">
@@ -234,7 +251,7 @@ export function BuscarForm({
           {filteredResults && filteredResults.length === 0 && (
             <Card className="py-10 text-center text-sm text-muted">
               {results.length === 0
-                ? "Assim que um prestador marcar esse bairro como atendido, ele aparece aqui automaticamente. Tente outro bairro ali em cima."
+                ? "Ainda não tem nenhum prestador desse serviço em Jandira. Assim que alguém se cadastrar, ele aparece aqui automaticamente."
                 : "Nenhum resultado com esses filtros — tente afrouxar um pouco."}
             </Card>
           )}
@@ -260,13 +277,19 @@ export function BuscarForm({
                       ) : (
                         <span>Sem avaliações ainda</span>
                       )}
-                      {r.home_region_name && <span>📍 {r.home_region_name}</span>}
+                      {!r.is_nearby_match && r.home_region_name && <span>📍 {r.home_region_name}</span>}
                       {r.price_from && (
                         <span>
                           💰 A partir de R$ {Number(r.price_from).toLocaleString("pt-BR")}
                         </span>
                       )}
                     </div>
+                    {r.is_nearby_match && r.matched_region_name && (
+                      <p className="mt-1 text-xs font-medium text-brand">
+                        📍 Atende {r.matched_region_name}
+                        {r.distance_km != null && ` (a ${Number(r.distance_km).toLocaleString("pt-BR")} km de ${regionName})`}
+                      </p>
+                    )}
                     {otherRegions.length > 0 && (
                       <p className="mt-1 text-xs text-muted">
                         Atende também: {otherRegions.slice(0, 2).join(", ")}

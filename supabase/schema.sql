@@ -768,6 +768,16 @@ $$;
 -- bairro pesquisado como atendido (provider_regions). Ordem (item 13):
 -- verificado > avaliação > nº de avaliações > perfil completo.
 -- Paginado (item 42/43) — não devolve tudo de uma vez.
+--
+-- Fase 10: se NENHUM prestador atende o bairro pesquisado, cai
+-- automaticamente pra um fallback "bairros próximos" — pega prestadores
+-- do mesmo serviço em qualquer outro bairro da cidade, ordenado pela
+-- distância real (haversine_km, quando os dois bairros têm
+-- latitude/longitude cadastrados; sem coordenada cai pro fim, mas
+-- ainda aparece — cidade pequena, todo bairro é "perto"). O cliente
+-- vê de qual bairro o prestador é (matched_region_name/distance_km) e
+-- pede normalmente; quem decide se topa atender é o prestador, ao
+-- aceitar ou recusar a solicitação.
 -- ---------------------------------------------------------------------
 create or replace function public.search_providers(
   p_service_slug text,
@@ -788,46 +798,108 @@ returns table (
   is_verified boolean,
   profile_completion int,
   home_region_name text,
-  other_regions text[]
+  other_regions text[],
+  matched_region_name text,
+  is_nearby_match boolean,
+  distance_km numeric
 )
 language sql
 stable
 security definer
 set search_path = public
 as $$
-  select
-    pp.id,
-    pp.professional_name,
-    pp.profile_photo,
-    pp.description,
-    pp.price_from,
-    pp.price_to,
-    pp.availability,
-    pp.rating_avg,
-    pp.rating_count,
-    pp.is_verified,
-    pp.profile_completion,
-    hr.name,
-    coalesce(
-      (
-        select array_agg(r2.name order by r2.name)
-        from public.provider_regions pr2
-        join public.regions r2 on r2.id = pr2.region_id
-        where pr2.provider_id = pp.id and pr2.region_id <> p_region_id
-      ),
-      '{}'
-    )
-  from public.provider_profiles pp
-  join public.provider_services ps on ps.provider_id = pp.id
-  join public.services s on s.id = ps.service_id and s.slug = p_service_slug and s.is_active
-  join public.provider_regions pr on pr.provider_id = pp.id and pr.region_id = p_region_id
-  left join public.user_addresses ua on ua.user_id = pp.user_id
-  left join public.regions hr on hr.id = ua.region_id
-  -- Regra mais importante do marketplace (Fase 6, item 42): só
-  -- aparece publicado E homologado pelo admin. Fase 9: e com a
-  -- assinatura mensal em dia.
-  where pp.is_active = true and pp.status = 'APPROVED' and public.has_active_subscription(pp.user_id)
-  order by pp.is_verified desc, pp.rating_avg desc nulls last, pp.rating_count desc, pp.profile_completion desc
+  with target as (
+    select latitude, longitude from public.regions where id = p_region_id
+  ),
+  exact as (
+    select
+      pp.id as provider_id,
+      pp.professional_name,
+      pp.profile_photo,
+      pp.description,
+      pp.price_from,
+      pp.price_to,
+      pp.availability,
+      pp.rating_avg,
+      pp.rating_count,
+      pp.is_verified,
+      pp.profile_completion,
+      hr.name as home_region_name,
+      coalesce(
+        (
+          select array_agg(r2.name order by r2.name)
+          from public.provider_regions pr2
+          join public.regions r2 on r2.id = pr2.region_id
+          where pr2.provider_id = pp.id and pr2.region_id <> p_region_id
+        ),
+        '{}'
+      ) as other_regions,
+      r.name as matched_region_name,
+      false as is_nearby_match,
+      0::numeric as distance_km
+    from public.provider_profiles pp
+    join public.provider_services ps on ps.provider_id = pp.id
+    join public.services s on s.id = ps.service_id and s.slug = p_service_slug and s.is_active
+    join public.provider_regions pr on pr.provider_id = pp.id and pr.region_id = p_region_id
+    join public.regions r on r.id = p_region_id
+    left join public.user_addresses ua on ua.user_id = pp.user_id
+    left join public.regions hr on hr.id = ua.region_id
+    -- Regra mais importante do marketplace (Fase 6, item 42): só
+    -- aparece publicado E homologado pelo admin. Fase 9: e com a
+    -- assinatura mensal em dia.
+    where pp.is_active = true and pp.status = 'APPROVED' and public.has_active_subscription(pp.user_id)
+  ),
+  exact_count as (
+    select count(*) as n from exact
+  ),
+  nearby as (
+    select distinct on (pp.id)
+      pp.id as provider_id,
+      pp.professional_name,
+      pp.profile_photo,
+      pp.description,
+      pp.price_from,
+      pp.price_to,
+      pp.availability,
+      pp.rating_avg,
+      pp.rating_count,
+      pp.is_verified,
+      pp.profile_completion,
+      hr.name as home_region_name,
+      coalesce(
+        (
+          select array_agg(r2.name order by r2.name)
+          from public.provider_regions pr2
+          join public.regions r2 on r2.id = pr2.region_id
+          where pr2.provider_id = pp.id and r2.id <> r.id
+        ),
+        '{}'
+      ) as other_regions,
+      r.name as matched_region_name,
+      true as is_nearby_match,
+      public.haversine_km(t.latitude, t.longitude, r.latitude, r.longitude) as distance_km
+    from public.provider_profiles pp
+    join public.provider_services ps on ps.provider_id = pp.id
+    join public.services s on s.id = ps.service_id and s.slug = p_service_slug and s.is_active
+    join public.provider_regions pr on pr.provider_id = pp.id
+    join public.regions r on r.id = pr.region_id and r.id <> p_region_id and r.is_active
+    cross join target t
+    left join public.user_addresses ua on ua.user_id = pp.user_id
+    left join public.regions hr on hr.id = ua.region_id
+    where pp.is_active = true and pp.status = 'APPROVED' and public.has_active_subscription(pp.user_id)
+      and (select n from exact_count) = 0
+    order by pp.id, public.haversine_km(t.latitude, t.longitude, r.latitude, r.longitude) asc nulls last
+  )
+  select * from exact
+  union all
+  select * from nearby
+  order by
+    is_nearby_match asc,
+    distance_km asc nulls last,
+    is_verified desc,
+    rating_avg desc nulls last,
+    rating_count desc,
+    profile_completion desc
   limit p_limit offset p_offset;
 $$;
 

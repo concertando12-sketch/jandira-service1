@@ -662,6 +662,9 @@ export interface Database {
           profile_completion: number;
           home_region_name: string | null;
           other_regions: string[];
+          matched_region_name: string | null;
+          is_nearby_match: boolean;
+          distance_km: number | null;
         }[];
       };
       is_admin: { Args: Record<string, never>; Returns: boolean };
