@@ -16,6 +16,7 @@ export default async function PrestadorDashboardPage() {
     isActive: hasActiveSubscription,
     isFreeTrial,
     freeTrialEndDate,
+    amount: subscriptionAmount,
   } = await getSubscriptionData(user.id, user.role === "ADMIN");
 
   const { data: profile } = await supabase
@@ -120,7 +121,9 @@ export default async function PrestadorDashboardPage() {
               <p className="font-semibold text-foreground">30 dias grátis pra testar</p>
               <p className="text-sm text-muted">
                 Vencimento em {new Date(`${freeTrialEndDate}T00:00:00`).toLocaleDateString("pt-BR")} — depois
-                disso, a assinatura mensal passa a valer.
+                disso, a assinatura de{" "}
+                {subscriptionAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}/mês passa a
+                valer.
               </p>
             </div>
           </div>
