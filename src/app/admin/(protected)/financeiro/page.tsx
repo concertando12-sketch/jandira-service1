@@ -4,17 +4,17 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { Card, Badge } from "@/components/ui/card";
-import { ROLE_LABELS, FREE_TRIAL_END_DATE } from "@/lib/constants";
+import { ROLE_LABELS, LAUNCH_DATE } from "@/lib/constants";
 
 // Aba Financeira (Fase 9) — quem já pagou de verdade, com nome/CPF/e-mail
 // e o valor. Diferente de /admin/assinaturas (que só lista comprovante
 // PENDING_REVIEW pra aprovar/rejeitar): aqui é o histórico já aprovado,
 // pra dono da plataforma acompanhar quem pagou e quanto entrou.
 //
-// Só conta pagamentos aprovados a partir de FREE_TRIAL_END_DATE — os
-// pagamentos anteriores foram feitos ainda em fase de teste/ajuste
-// (antes do período de teste grátis e do valor subir pra R$6), então
-// não entram na contabilidade real da plataforma.
+// Só conta pagamentos aprovados a partir de LAUNCH_DATE — os
+// pagamentos anteriores foram feitos ainda em fase de teste/ajuste,
+// antes da plataforma ir pro ar de verdade, então não entram na
+// contabilidade real.
 export default async function AdminFinanceiroPage() {
   await requireRole("ADMIN");
   const supabase = await createClient();
@@ -22,7 +22,7 @@ export default async function AdminFinanceiroPage() {
   const startOfMonth = new Date();
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);
-  const trialEnd = new Date(`${FREE_TRIAL_END_DATE}T00:00:00Z`);
+  const launch = new Date(`${LAUNCH_DATE}T00:00:00Z`);
 
   const { data: paid } = await supabase
     .from("subscriptions")
@@ -30,7 +30,7 @@ export default async function AdminFinanceiroPage() {
       "id, amount, reviewed_at, period_start, period_end, users!subscriptions_user_id_fkey(name, email, cpf, phone, role)",
     )
     .eq("status", "APPROVED")
-    .gte("reviewed_at", trialEnd.toISOString())
+    .gte("reviewed_at", launch.toISOString())
     .order("reviewed_at", { ascending: false });
 
   const rows = paid ?? [];
@@ -49,7 +49,7 @@ export default async function AdminFinanceiroPage() {
     <div>
       <PageHeader
         title="Financeiro"
-        description={`Pagamentos de assinatura aprovados a partir de ${trialEnd.toLocaleDateString("pt-BR")} — pagamentos de teste anteriores a essa data não entram na conta.`}
+        description={`Pagamentos de assinatura aprovados a partir de ${launch.toLocaleDateString("pt-BR")} — pagamentos de teste anteriores a essa data não entram na conta.`}
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">

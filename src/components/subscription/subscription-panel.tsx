@@ -38,7 +38,7 @@ export function SubscriptionPanel({
   pixCopyPaste: string | null;
   amount: number;
   isFreeTrial: boolean;
-  freeTrialEndDate: string;
+  freeTrialEndDate: string | null;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
@@ -80,7 +80,7 @@ export function SubscriptionPanel({
                 {activeUntil
                   ? `Válida até ${formatDate(activeUntil)}.`
                   : isFreeTrial
-                    ? `Grátis pra testar até ${formatDate(freeTrialEndDate)}. Depois disso, a assinatura de ${amountLabel}/mês passa a valer normalmente.`
+                    ? `Você tem 30 dias grátis a partir do seu cadastro. Vencimento em ${formatDate(freeTrialEndDate)} — depois disso, a assinatura de ${amountLabel}/mês passa a valer.`
                     : "Conta administrativa — sem cobrança."}
               </p>
             </div>

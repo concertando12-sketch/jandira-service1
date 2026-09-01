@@ -1,6 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { buildPixPayload, buildPixQrDataUrl } from "@/lib/pix";
-import { APP_CITY, FREE_TRIAL_END_DATE } from "@/lib/constants";
+import { APP_CITY, TRIAL_DAYS } from "@/lib/constants";
+
+// created_at (timestamptz) + N dias, em data (YYYY-MM-DD) — usa só a
+// parte da data (igual o banco faz com created_at::date + N) pra não
+// depender de fuso/horário exato do cadastro.
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr.slice(0, 10)}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
 // Lê o histórico de assinatura de um usuário e resolve o status atual
 // — compartilhado entre /cliente/assinatura e /prestador/assinatura
@@ -11,11 +20,14 @@ import { APP_CITY, FREE_TRIAL_END_DATE } from "@/lib/constants";
 export async function getSubscriptionData(userId: string, isAdmin = false) {
   const supabase = await createClient();
 
-  const { data: settings } = await supabase
-    .from("platform_settings")
-    .select("pix_key, pix_receiver_name, subscription_amount")
-    .eq("id", true)
-    .maybeSingle();
+  const [{ data: settings }, { data: userRow }] = await Promise.all([
+    supabase
+      .from("platform_settings")
+      .select("pix_key, pix_receiver_name, subscription_amount")
+      .eq("id", true)
+      .maybeSingle(),
+    supabase.from("users").select("created_at").eq("id", userId).maybeSingle(),
+  ]);
 
   const amount = settings?.subscription_amount ?? 5;
   // QR Code + "PIX Copia e Cola" de verdade (padrão Bacen) — gerados na
@@ -33,11 +45,11 @@ export async function getSubscriptionData(userId: string, isAdmin = false) {
   const pixCopyPaste = pixOpts ? buildPixPayload(pixOpts) : null;
 
   const today = new Date().toISOString().slice(0, 10);
-  // Período de teste grátis de lançamento — mesmo corte de
-  // has_active_subscription() no banco (schema.sql). Cliente e
-  // prestador ficam liberados até essa data sem precisar de nenhuma
-  // assinatura aprovada.
-  const isFreeTrial = today < FREE_TRIAL_END_DATE;
+  // Teste grátis por pessoa — TRIAL_DAYS a partir do PRÓPRIO cadastro
+  // (created_at), não uma data fixa igual pra todo mundo. Mesmo
+  // cálculo de has_active_subscription() no banco (schema.sql).
+  const freeTrialEndDate = userRow?.created_at ? addDays(userRow.created_at, TRIAL_DAYS) : null;
+  const isFreeTrial = freeTrialEndDate ? today < freeTrialEndDate : false;
 
   if (isAdmin) {
     return {
@@ -51,7 +63,7 @@ export async function getSubscriptionData(userId: string, isAdmin = false) {
       pixCopyPaste,
       amount,
       isFreeTrial: false,
-      freeTrialEndDate: FREE_TRIAL_END_DATE,
+      freeTrialEndDate,
     };
   }
 
@@ -75,6 +87,6 @@ export async function getSubscriptionData(userId: string, isAdmin = false) {
     pixCopyPaste,
     amount,
     isFreeTrial,
-    freeTrialEndDate: FREE_TRIAL_END_DATE,
+    freeTrialEndDate,
   };
 }

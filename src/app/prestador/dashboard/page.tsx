@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bell, CalendarCheck2, CheckCircle2, Star, UserCircle2, Wallet } from "lucide-react";
+import { Bell, CalendarCheck2, CheckCircle2, Gift, Star, UserCircle2, Wallet } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getSubscriptionData } from "@/lib/subscription";
@@ -10,7 +10,11 @@ import { StatCard } from "@/components/dashboard/stat-card";
 export default async function PrestadorDashboardPage() {
   const user = await requireRole("PROVIDER");
   const supabase = await createClient();
-  const { isActive: hasActiveSubscription } = await getSubscriptionData(user.id, user.role === "ADMIN");
+  const {
+    isActive: hasActiveSubscription,
+    isFreeTrial,
+    freeTrialEndDate,
+  } = await getSubscriptionData(user.id, user.role === "ADMIN");
 
   const { data: profile } = await supabase
     .from("provider_profiles")
@@ -84,6 +88,21 @@ export default async function PrestadorDashboardPage() {
           <LinkButton href="/prestador/servicos" size="sm">
             Escolher serviços
           </LinkButton>
+        </Card>
+      )}
+
+      {isFreeTrial && freeTrialEndDate && (
+        <Card className="mt-3 flex flex-col items-start gap-3 border-brand/40 bg-brand/10 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <Gift className="h-8 w-8 text-brand" />
+            <div>
+              <p className="font-semibold text-foreground">30 dias grátis pra testar</p>
+              <p className="text-sm text-muted">
+                Vencimento em {new Date(`${freeTrialEndDate}T00:00:00`).toLocaleDateString("pt-BR")} — depois
+                disso, a assinatura mensal passa a valer.
+              </p>
+            </div>
+          </div>
         </Card>
       )}
 
