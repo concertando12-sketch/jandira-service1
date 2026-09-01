@@ -1,10 +1,21 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { MapPin } from "lucide-react";
 import { Logo, LogoMark } from "@/components/brand/logo";
-import { APP_CITY, APP_STATE } from "@/lib/constants";
+import { APP_CITY, APP_STATE, ROLE_HOME } from "@/lib/constants";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { getCurrentUser } from "@/lib/auth";
 
-export default function Home() {
+// Item pedido pelo dono da plataforma: quem já tem conta e sessão
+// salva não pode cair de novo nessa tela de "criar conta / entrar"
+// toda vez que abre o app — vai direto pro dashboard do próprio papel.
+// Bloqueado (is_active=false) cai em /bloqueado, igual ao middleware.
+export default async function Home() {
+  const user = await getCurrentUser();
+  if (user) {
+    redirect(user.is_active ? ROLE_HOME[user.role] : "/bloqueado");
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <header className="flex items-center justify-between border-b border-border px-6 py-4 sm:px-10">

@@ -10,12 +10,20 @@ export const APP_COUNTRY = process.env.NEXT_PUBLIC_APP_COUNTRY ?? "BR";
 // número pra qualquer dúvida.
 export const SUPPORT_WHATSAPP_PHONE = "+55 11 98514-9222";
 
-// Período de teste grátis de lançamento (Fase 9) — todo mundo (cliente
-// e prestador) fica liberado sem precisar de assinatura aprovada até
-// essa data. Espelha o mesmo corte em has_active_subscription() no
-// banco (supabase/schema.sql) — mudar aqui não muda o banco sozinho,
-// os dois precisam ser atualizados juntos.
-export const FREE_TRIAL_END_DATE = "2026-10-01";
+// Teste grátis de lançamento (Fase 10) — cada pessoa (cliente ou
+// prestador) fica liberada por N dias a partir do PRÓPRIO cadastro,
+// sem precisar de assinatura aprovada. Vencimento = created_at + esses
+// dias. Espelha o mesmo cálculo em has_active_subscription() no banco
+// (supabase/schema.sql) — mudar aqui não muda o banco sozinho, os dois
+// precisam ser atualizados juntos.
+export const TRIAL_DAYS = 30;
+
+// Data em que a plataforma passou a valer pra contabilidade de
+// verdade — só usada pras telas financeiras do admin (Financeiro,
+// Receita do mês) ignorarem pagamentos de teste/ajuste feitos durante
+// o desenvolvimento, antes disso. Não tem relação com o teste grátis
+// de cada pessoa (isso é o TRIAL_DAYS acima).
+export const LAUNCH_DATE = "2026-09-01";
 
 export const ROLE_LABELS = {
   CLIENT: "Cliente",
@@ -24,6 +32,16 @@ export const ROLE_LABELS = {
 } as const;
 
 export type UserRole = keyof typeof ROLE_LABELS;
+
+// Pra onde cada role vai quando já está logado — usado pelo middleware
+// (rota errada -> home certa) e pelas páginas de entrada (/, /login,
+// /cadastro): quem já tem sessão válida não deve ver tela de
+// login/cadastro de novo, vai direto pro dashboard.
+export const ROLE_HOME: Record<UserRole, string> = {
+  CLIENT: "/cliente/dashboard",
+  PROVIDER: "/prestador/dashboard",
+  ADMIN: "/admin/dashboard",
+};
 
 export const REQUEST_STATUS_LABELS = {
   PENDING: "Aguardando resposta",

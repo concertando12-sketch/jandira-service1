@@ -2,13 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "./types";
 import { isSupabaseConfigured, supabaseAnonKey, supabaseUrl } from "./env";
-import { PREVIEW_ROLE_COOKIE, type UserRole } from "../constants";
-
-const ROLE_HOME: Record<UserRole, string> = {
-  CLIENT: "/cliente/dashboard",
-  PROVIDER: "/prestador/dashboard",
-  ADMIN: "/admin/dashboard",
-};
+import { PREVIEW_ROLE_COOKIE, ROLE_HOME, type UserRole } from "../constants";
 
 const PROTECTED_PREFIXES: { prefix: string; role: UserRole }[] = [
   { prefix: "/cliente", role: "CLIENT" },
