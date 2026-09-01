@@ -162,7 +162,7 @@ export function DashboardShell({
       )}
       <div className="flex min-h-0 flex-1 bg-background">
       {/* Sidebar — desktop */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-surface py-6 lg:flex">
+      <aside className="hidden w-64 shrink-0 flex-col overflow-y-auto border-r border-border bg-surface py-6 lg:flex">
         <Link href="/" className="mb-6 px-5">
           <Logo subtitle={false} />
         </Link>
@@ -190,7 +190,7 @@ export function DashboardShell({
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-black/60" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 flex w-72 flex-col border-r border-border bg-surface py-6">
+          <aside className="absolute inset-y-0 left-0 flex w-72 flex-col overflow-y-auto border-r border-border bg-surface py-6">
             <div className="mb-6 flex items-center justify-between px-5">
               <Logo subtitle={false} />
               <button onClick={() => setOpen(false)} aria-label="Fechar menu">
