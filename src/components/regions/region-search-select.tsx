@@ -14,10 +14,14 @@ export function RegionSearchSelect({
   regions,
   value,
   onChange,
+  showSuggestion = true,
 }: {
   regions: RegionOption[];
   value: string | null;
   onChange: (regionId: string, regionName: string) => void;
+  // "Sugerir bairro" chama uma server action que exige login — em
+  // telas sem sessão ainda (ex: cadastro) não faz sentido mostrar.
+  showSuggestion?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -77,7 +81,7 @@ export function RegionSearchSelect({
               </button>
             ))}
           </div>
-          <SuggestRegionForm />
+          {showSuggestion && <SuggestRegionForm />}
         </div>
       )}
     </div>

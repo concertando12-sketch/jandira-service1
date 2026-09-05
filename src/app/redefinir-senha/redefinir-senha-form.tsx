@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { FieldError, Input, Label } from "@/components/ui/input";
+import { FieldError, Label, PasswordInput } from "@/components/ui/input";
 
 export function RedefinirSenhaForm() {
   const router = useRouter();
@@ -42,9 +42,8 @@ export function RedefinirSenhaForm() {
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div>
         <Label htmlFor="password">Nova senha</Label>
-        <Input
+        <PasswordInput
           id="password"
-          type="password"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -53,9 +52,8 @@ export function RedefinirSenhaForm() {
       </div>
       <div>
         <Label htmlFor="confirmPassword">Confirmar nova senha</Label>
-        <Input
+        <PasswordInput
           id="confirmPassword"
-          type="password"
           required
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}

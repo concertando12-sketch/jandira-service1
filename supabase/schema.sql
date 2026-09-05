@@ -506,12 +506,23 @@ $$;
 -- Cria a linha em public.users automaticamente quando alguém se cadastra
 -- no Supabase Auth. O role vem do metadata do signUp, mas nunca aceita
 -- 'ADMIN' vindo do cliente (só o admin cria outro admin via SQL/painel).
+--
+-- Endereço no cadastro: se a pessoa já escolheu um bairro na tela de
+-- criar conta (region_id no metadata), já cria a linha em
+-- user_addresses na hora — sem isso, ela só preenchia depois em
+-- /cliente/endereco ou /prestador/endereco (Fase 3.1). O region_id
+-- vem do formulário (não é confiável), então só insere se ele bater
+-- com um bairro ativo de verdade; qualquer coisa fora disso (uuid
+-- inválido, bairro inexistente/inativo) é ignorada em silêncio — não
+-- pode quebrar a criação da conta por causa de um campo opcional.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  region_uuid uuid;
 begin
   insert into public.users (id, name, email, phone, cpf, role)
   values (
@@ -526,6 +537,25 @@ begin
     end
   )
   on conflict (id) do nothing;
+
+  if new.raw_user_meta_data->>'region_id' ~*
+     '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  then
+    region_uuid := (new.raw_user_meta_data->>'region_id')::uuid;
+
+    insert into public.user_addresses (user_id, city_id, region_id, street, number, complement)
+    select
+      new.id,
+      r.city_id,
+      r.id,
+      nullif(new.raw_user_meta_data->>'street', ''),
+      nullif(new.raw_user_meta_data->>'number', ''),
+      nullif(new.raw_user_meta_data->>'complement', '')
+    from public.regions r
+    where r.id = region_uuid and r.is_active
+    on conflict (user_id) do nothing;
+  end if;
+
   return new;
 end;
 $$;

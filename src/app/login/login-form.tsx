@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { FieldError, Input, Label } from "@/components/ui/input";
+import { FieldError, Input, Label, PasswordInput } from "@/components/ui/input";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export function LoginForm() {
@@ -77,9 +77,8 @@ export function LoginForm() {
             Esqueci a senha
           </Link>
         </div>
-        <Input
+        <PasswordInput
           id="password"
-          type="password"
           required
           autoComplete="current-password"
           value={password}

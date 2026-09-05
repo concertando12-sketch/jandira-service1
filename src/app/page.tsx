@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { MapPin } from "lucide-react";
+import { MapPin, MessageCircle } from "lucide-react";
 import { Logo, LogoMark } from "@/components/brand/logo";
-import { APP_CITY, APP_STATE, ROLE_HOME } from "@/lib/constants";
+import { APP_CITY, APP_STATE, ROLE_HOME, SUPPORT_WHATSAPP_PHONE } from "@/lib/constants";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { getCurrentUser } from "@/lib/auth";
+import { buildWhatsAppLink } from "@/lib/whatsapp";
 
 // Item pedido pelo dono da plataforma: quem já tem conta e sessão
 // salva não pode cair de novo nessa tela de "criar conta / entrar"
@@ -15,6 +16,11 @@ export default async function Home() {
   if (user) {
     redirect(user.is_active ? ROLE_HOME[user.role] : "/bloqueado");
   }
+
+  const supportLink = buildWhatsAppLink(
+    SUPPORT_WHATSAPP_PHONE,
+    "Olá! Tenho uma dúvida sobre o Jandira Service.",
+  );
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -93,6 +99,18 @@ export default async function Home() {
             Esqueceu a senha?
           </Link>
         </p>
+
+        {supportLink && (
+          <Link
+            href={supportLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 flex items-center gap-2 text-xs font-medium text-muted hover:text-brand hover:underline"
+          >
+            <MessageCircle className="h-3.5 w-3.5" />
+            Ficou com alguma dúvida? Fala com a gente pelo WhatsApp
+          </Link>
+        )}
 
         {!isSupabaseConfigured && (
           <Link

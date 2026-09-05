@@ -6,7 +6,9 @@ import { useSearchParams } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { FieldError, Input, Label } from "@/components/ui/input";
+import { FieldError, Input, Label, PasswordInput } from "@/components/ui/input";
+import { RegionSearchSelect } from "@/components/regions/region-search-select";
+import type { RegionOption } from "@/components/regions/region-checkbox-list";
 import { cn } from "@/lib/utils";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { UserRole } from "@/lib/constants";
@@ -27,7 +29,7 @@ function formatCpf(value: string) {
     .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
 }
 
-export function CadastroForm() {
+export function CadastroForm({ regions }: { regions: RegionOption[] }) {
   const searchParams = useSearchParams();
   const initialRole = searchParams.get("role") === "PROVIDER" ? "PROVIDER" : "CLIENT";
 
@@ -36,6 +38,10 @@ export function CadastroForm() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [cpf, setCpf] = useState("");
+  const [regionId, setRegionId] = useState<string | null>(null);
+  const [street, setStreet] = useState("");
+  const [number, setNumber] = useState("");
+  const [complement, setComplement] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -106,7 +112,23 @@ export function CadastroForm() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name, phone, cpf: cpfDigits, role } },
+      options: {
+        data: {
+          name,
+          phone,
+          cpf: cpfDigits,
+          role,
+          // Endereço é opcional aqui — quem não preencher ainda
+          // consegue completar depois em /cliente/endereco ou
+          // /prestador/endereco. Quando region_id vem preenchido, o
+          // trigger handle_new_user (supabase/schema.sql) já cria a
+          // linha em user_addresses na hora.
+          region_id: regionId,
+          street: street.trim() || null,
+          number: number.trim() || null,
+          complement: complement.trim() || null,
+        },
+      },
     });
     setLoading(false);
 
@@ -232,12 +254,60 @@ export function CadastroForm() {
         </p>
       </div>
 
+      {regions.length > 0 && (
+        <>
+          <div>
+            <Label>Bairro</Label>
+            <RegionSearchSelect
+              regions={regions}
+              value={regionId}
+              onChange={(id) => setRegionId(id)}
+              showSuggestion={false}
+            />
+            <p className="mt-1 text-xs text-muted">
+              Opcional — dá pra preencher depois, mas já ajuda a gente a te mostrar prestadores
+              da sua região assim que entrar.
+            </p>
+          </div>
+
+          <div>
+            <Label htmlFor="street">Endereço (rua/avenida)</Label>
+            <Input
+              id="street"
+              value={street}
+              onChange={(e) => setStreet(e.target.value)}
+              placeholder="Ex: Rua das Flores"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="number">Número</Label>
+              <Input
+                id="number"
+                value={number}
+                onChange={(e) => setNumber(e.target.value)}
+                placeholder="123"
+              />
+            </div>
+            <div>
+              <Label htmlFor="complement">Complemento</Label>
+              <Input
+                id="complement"
+                value={complement}
+                onChange={(e) => setComplement(e.target.value)}
+                placeholder="Apto, bloco…"
+              />
+            </div>
+          </div>
+        </>
+      )}
+
       <div>
         <Label htmlFor="password">Senha</Label>
-        <Input
+        <PasswordInput
           id="password"
           ref={passwordRef}
-          type="password"
           required
           autoComplete="new-password"
           enterKeyHint="next"
@@ -250,10 +320,9 @@ export function CadastroForm() {
 
       <div>
         <Label htmlFor="confirmPassword">Confirmar senha</Label>
-        <Input
+        <PasswordInput
           id="confirmPassword"
           ref={confirmPasswordRef}
-          type="password"
           required
           autoComplete="new-password"
           enterKeyHint="done"
